@@ -49,7 +49,7 @@ def main():
     # Run shared mutations analysis
     shared_mutations(df_clean, args.ancestor, args.output_dir)
 
-    print("Analysis complete!")
+    print("Analysis complete.")
 
 if __name__ == '__main__':
     main()

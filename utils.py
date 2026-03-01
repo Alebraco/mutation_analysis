@@ -27,6 +27,10 @@ def get_strain_columns(df, ancestor):
     '''
     Get list of strain columns (non-descriptive columns only)
     '''
+    # Start with descriptive columns and add ancestor column
     descriptive_cols = descriptive_cols.append(ancestor)
+
+    # Strain columns are all columns that are not in descriptive_cols
     strain_cols = [col for col in df.columns if col not in descriptive_cols]
+
     return strain_cols

@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from utils import get_strain_columns
 from data_cleaner import clean_text
 from mutation_classifier import classify_mutation
 
@@ -13,11 +14,18 @@ def load_and_filter(input_file, ancestor, header_row=1):
     # Replace #ERROR! with NA
     df = df.replace('#ERROR!', pd.NA)
 
-    valid_rows = []
-    question_rows = []
-
     if ancestor.endswith('.gd'):
         ancestor = ancestor.replace('.gd', '')
+
+    # Get strain columns
+    strain_cols = get_strain_columns(df, ancestor)
+    
+    # Remove triangles from strain columns only
+    for col in strain_cols:
+        df[col] = df[col].astype(str).str.replace('Δ', '')
+
+    valid_rows = []
+    question_rows = []
 
     for index, row in df.iterrows():
         row_string = str(row.values)
@@ -30,13 +38,6 @@ def load_and_filter(input_file, ancestor, header_row=1):
         if '?' in row_string:
             question_rows.append(row)
             continue
-
-        # Exclude deletion rows
-        elif 'Δ' in row_string:
-            continue
-
-        if '#ERROR!' in str(df.loc[index, 'mutation']):
-            df.loc[index, 'mutation'] = np.nan
 
         # Append valid rows only
         valid_rows.append(row)
