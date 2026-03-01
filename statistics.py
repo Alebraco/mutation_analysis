@@ -19,7 +19,7 @@ def calculate_basic_stats(df, ancestor, output_dir='.'):
 
         type_counts = strain_df['mutation_type'].value_counts()
         total = len(strain_df)
-        avg_frequency = pd.to_numeric(strain_df[strain]).mean()
+        avg_frequency = pd.to_numeric(strain_df[strain], errors='coerce').mean()
 
         # Calculate mutation proportions
         proportions = (type_counts / total)
@@ -41,3 +41,24 @@ def calculate_basic_stats(df, ancestor, output_dir='.'):
     summary_df.to_excel(summary_file, index=False)
     print(f'Saved mutation summary: {summary_file}')
     return summary_df
+
+def frequency_filter(df, min_frequency, ancestor):
+    '''
+    Filter mutations based on minimum frequency threshold
+    Keeps entire row if at least one strain meets the threshold
+    '''
+    strain_cols = get_strain_columns(df, ancestor)
+    values = pd.to_numeric(df[strain_cols], errors='coerce')
+
+    keep_rows = (values >= min_frequency).any(axis=1)
+    df_filtered = df[keep_rows]
+
+    ## Set values below threshold to NA, keep only strains that meet threshold
+    # for strain in strain_cols:
+    #     values = pd.to_numeric(df_filtered[strain], errors='coerce')
+    #     df_filtered.loc[values < min_frequency, strain] = pd.NA
+
+    # # Drop mutations not meeting threshold in any strain
+    # df_filtered = df_filtered.dropna(subset=strain_cols, how='all')
+
+    return df_filtered
