@@ -52,6 +52,7 @@ def frequency_filter(df, min_frequency, ancestor):
 
     keep_rows = (values >= min_frequency).any(axis=1)
     df_filtered = df[keep_rows]
+    print(f'{len(df_filtered)} mutations meet frequency threshold: {min_frequency}')
 
     ## Set values below threshold to NA, keep only strains that meet threshold
     # for strain in strain_cols:
