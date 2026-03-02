@@ -121,13 +121,6 @@ Mutations are classified based on their annotation:
 - **`analysis.py`**: Performs mutation analysis (shared and unique)
 - **`utils.py`**: Utility functions and common data structures
 
-## Example Workflow
-
-```bash
-# Run the full analysis pipeline
-python main.py breseq_example_output.xlsx KZ_19 --output-dir results/
-```
-
 ## Troubleshooting
 
 **Issue**: `KeyError` for ancestor column
