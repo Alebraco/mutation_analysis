@@ -4,13 +4,13 @@ A Python pipeline for processing and analyzing mutation data from [breseq](https
 
 ## Overview
 
-This pipeline processes breseq outputs in Excel format and performs statistical and comparative analyses:
+This pipeline processes breseq outputs in Excel format:
 
-- **Data cleaning and filtering**: Removes low-coverage mutations, ancestor mutations, and deletions
+- **Data cleaning and filtering**: Removes low-coverage mutations, ancestor mutations, and nonstandard characters
 - **Mutation classification**: Categorizes mutations as nonsynonymous, synonymous, intergenic, nonsense, noncoding, or pseudogene
 - **Frequency-based filtering**: Generates filtered datasets at multiple frequency thresholds (25%, 50%, 75%, 100%)
-- **Statistical summaries**: Calculates mutation type proportions and average frequencies per strain
-- **Parallel mutation detection**: Identifies mutations shared across strains at both site and gene levels
+- **Statistical summaries**: Calculates mutation class proportions and average frequencies
+- **Mutation analysis**: Identifies shared and unique mutations
 
 ## Requirements
 
@@ -53,7 +53,7 @@ python main.py breseq_output.xlsx KZ_19
 
 ## Input Format
 
-The input Excel file should contain a standard breseq output.
+The input Excel file should contain the standard breseq output.
 
 ## Output Files
 
@@ -88,12 +88,13 @@ The pipeline generates the following outputs in the specified output directory:
 | Strain_A | 0.65 | 0.20 | 0.10 | 0.03 | 0.02 | 120 | 0.875 |
 | Strain_B | 0.58 | 0.25 | 0.12 | 0.04 | 0.01 | 98 | 0.820 |
 
-### 4. Parallel Mutation Analysis
+### 4. Mutation Analysis
 
 | File | Description |
 |------|-------------|
 | `site_parallel_mutations.xlsx` | Shared mutations occurring at the same position |
 | `gene_parallel_mutations.xlsx` | Shared mutations occurring at same gene (any site) |
+| `unique_mutations.xlsx`        | Mutations unique to one strain |
 
 ## Mutation Classification
 

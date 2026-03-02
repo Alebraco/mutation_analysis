@@ -102,12 +102,12 @@ def mutation_analysis(df, ancestor, output_dir='.'):
         
         isolate_df.insert(0, 'mutation_number', range(1, len(isolate_df) + 1))
 
-        isolate_file = os.path.join(output_dir, 'isolate_mutations.xlsx')
+        isolate_file = os.path.join(output_dir, 'unique_mutations.xlsx')
         isolate_df.to_excel(isolate_file, index=False)
-        print(f'Saved isolate mutations: {isolate_file}')
-        print(f'Total isolate mutations: {len(isolate_df)}')
+        print(f'Saved unique mutations: {isolate_file}')
+        print(f'Total unique mutations: {len(isolate_df)}')
     else:
-        print('No isolate mutations found.')
+        print('No unique mutations found.')
         isolate_df = None
 
     return site_df, gene_df, isolate_df
