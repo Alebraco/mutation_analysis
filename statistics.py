@@ -48,7 +48,7 @@ def frequency_filter(df, min_frequency, ancestor):
     Keeps entire row if at least one strain meets the threshold
     '''
     strain_cols = get_strain_columns(df, ancestor)
-    values = pd.to_numeric(df[strain_cols], errors='coerce')
+    values = df[strain_cols].apply(pd.to_numeric, errors='coerce')
 
     keep_rows = (values >= min_frequency).any(axis=1)
     df_filtered = df[keep_rows]
