@@ -17,6 +17,7 @@ This pipeline processes breseq outputs in Excel format:
 - Python 3
 - pandas
 - numpy
+- openpyxl
 
 ## Installation
 
@@ -26,7 +27,7 @@ git clone https://github.com/Alebraco/mutation_analysis
 cd mutation_analysis
 
 # Install dependencies
-pip install pandas numpy
+conda create -n mutation_analysis pandas numpy openpyxl
 ```
 
 ## Usage
