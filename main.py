@@ -17,8 +17,8 @@ def main():
     parser.add_argument('ancestor', help='Ancestor name (e.g., "KZ_19")')
     parser.add_argument('--header-row', type=int, default=1, 
                        help='Header row index (default: 1)')
-    parser.add_argument('--output-dir', default='.', 
-                       help='Output directory (default: current directory)')
+    parser.add_argument('--output-dir', default='output_files', 
+                       help='Output directory (default: output_files/)')
     
     args = parser.parse_args()
 
