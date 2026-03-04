@@ -28,6 +28,7 @@ cd mutation_analysis
 
 # Install dependencies
 conda create -n mutation_analysis pandas numpy openpyxl
+conda activate mutation_analysis
 ```
 
 ## Usage
