@@ -36,6 +36,7 @@ def main():
     clean_file = os.path.join(args.output_dir, 'cleaned_data.xlsx')
     df_clean.to_excel(clean_file, index=False)
     print(f'Saved cleaned data: {clean_file}')
+    print(f'Cleaned data contains {len(df_clean)} rows.')
 
     # Save low coverage rows if any
     if question_df is not None:
