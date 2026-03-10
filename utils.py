@@ -20,7 +20,7 @@ codon_table = {
     'GGT': 'G', 'GGC': 'G', 'GGA': 'G', 'GGG': 'G'
 }
 
-descriptive_cols = ['seq id', 'position', 'mutation', 'annotation',
+descriptive_cols = ['seq_id', 'position', 'mutation', 'annotation',
                    'gene', 'description', 'mutation_type']
 
 def get_strain_columns(df, ancestor):

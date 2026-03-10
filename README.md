@@ -50,7 +50,7 @@ python main.py breseq_output.xlsx KZ_19
 |----------|----------|---------|-------------|
 | `input_file` | Yes | - | Path to input Excel file containing breseq mutation data |
 | `ancestor` | Yes | - | Name of the ancestor strain column (e.g., "KZ_19") |
-| `--header-row` | No | 1 | Row index containing column headers |
+| `--header-row` | No | 0 | Row index to be skipped from analysis |
 | `--output-dir` | No | `.` | Output directory for results |
 
 ## Input Format
@@ -127,6 +127,7 @@ Mutations are classified based on their annotation:
 
 **Issue**: `KeyError` for ancestor column
 - Ancestor name must match exactly (case-sensitive) with the column name in the input Excel file
+- Confirm that the `header-row`parameter is correct to skip rows before column names.
 
 **Issue**: `ValueError` when parsing frequencies
 - Frequency values must be numeric (0.0 to 1.0) or empty

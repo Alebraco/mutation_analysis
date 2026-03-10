@@ -1,10 +1,11 @@
 import pandas as pd
 import numpy as np
+import re
 from utils import get_strain_columns
 from data_cleaner import clean_text
 from mutation_classifier import classify_mutation
 
-def load_and_filter(input_file, ancestor, header_row=1):
+def load_and_filter(input_file, ancestor, header_row=0):
     '''
     Load data and filter invalid rows
     '''
@@ -12,9 +13,17 @@ def load_and_filter(input_file, ancestor, header_row=1):
     df = pd.read_excel(input_file, header=header_row)
 
     # Standardize column names
-    df.columns = df.columns.astype(str).str.lower().str.strip()
-    # Replace multiple spaces with a single space
-    df.columns = df.columns.str.replace(r'\s+', ' ', regex=True)
+    df.columns = (
+                df.columns.astype(str)
+                    .str.lower()                                # Make columns lower-case
+                    .str.strip()                                # Remove trailing spaces
+                    .str.replace(r'\s+', '_', regex=True)       # Convert single/multiple spaces into underscore
+                    .str.replace('seqid', 'seq_id')             # Always use underscore for seq_id
+
+    )
+
+    ancestor = re.sub(r'\s+', '_', str(ancestor)    # Substitute spaces for underscores to match column
+                      .lower().strip())             # Standardize ancestor name
 
     # Replace #ERROR! with NA
     df = df.replace('#ERROR!', pd.NA)
