@@ -11,6 +11,11 @@ def load_and_filter(input_file, ancestor, header_row=1):
     print(f'Reading input file: {input_file}')
     df = pd.read_excel(input_file, header=header_row)
 
+    # Standardize column names
+    df.columns = df.columns.astype(str).str.lower().str.strip()
+    # Replace multiple spaces with a single space
+    df.columns = df.columns.str.replace(r'\s+', ' ', regex=True)
+
     # Replace #ERROR! with NA
     df = df.replace('#ERROR!', pd.NA)
 
