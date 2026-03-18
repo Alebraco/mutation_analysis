@@ -42,7 +42,6 @@ def mutation_analysis(df, ancestor, output_dir='.'):
         # Save site-level parallel mutations to file
         site_file = os.path.join(output_dir, 'site_parallel_mutations.csv')
         site_df.to_csv(site_file, index=False)
-        print(f'Saved site-level parallel mutations: {site_file}')
         print(f'Total site-level parallel mutations: {len(site_df)}')
     else:
         print('No site-level parallel mutations found.')
