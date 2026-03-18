@@ -78,14 +78,12 @@ def main():
     # Save cleaned data
     clean_file = os.path.join(args.output, 'cleaned_data.csv')
     df_clean.to_csv(clean_file, index=False)
-    print(f'Saved cleaned data: {clean_file}')
     print(f'Cleaned data contains {len(df_clean)} rows.')
 
     # Save low coverage rows if any
     if question_df is not None:
         question_file = os.path.join(args.output, 'low_coverage_rows.csv')
         question_df.to_csv(question_file, index=False)
-        print(f'Saved low coverage rows: {question_file}')
 
     # Calculate basic statistics
     calculate_basic_stats(df_clean, args.ancestor, args.output, json_files=json_files)

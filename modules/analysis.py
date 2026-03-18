@@ -85,7 +85,6 @@ def mutation_analysis(df, ancestor, output_dir='.'):
         
         gene_file = os.path.join(output_dir, 'gene_parallel_mutations.csv')
         gene_df.to_csv(gene_file, index=False)
-        print(f'Saved gene-level parallel mutations: {gene_file}')
         print(f'Total gene-level parallel mutations: {len(gene_df)}')
     else:
         print('No gene-level parallel mutations found.')
@@ -105,7 +104,6 @@ def mutation_analysis(df, ancestor, output_dir='.'):
 
         isolate_file = os.path.join(output_dir, 'unique_mutations.csv')
         isolate_df.to_csv(isolate_file, index=False)
-        print(f'Saved unique mutations: {isolate_file}')
         print(f'Total unique mutations: {len(isolate_df)}')
     else:
         print('No unique mutations found.')

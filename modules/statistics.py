@@ -82,7 +82,6 @@ def calculate_basic_stats(df, ancestor, output_dir='.', json_files=None):
         summary_df['Average Coverage'] = summary_df['Line'].map(coverage)
     summary_file = os.path.join(output_dir, 'mutation_summary.csv')
     summary_df.to_csv(summary_file, index=False)
-    print(f'Saved mutation summary: {summary_file}')
     return summary_df
 
 def frequency_filter(df, min_frequency, ancestor):
