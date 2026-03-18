@@ -44,33 +44,39 @@ def load_and_filter(input_file, ancestor, header_row=0):
     # Get strain columns
     strain_cols = get_strain_columns(df, ancestor)
     
-    # Remove triangles from strain columns only
+    # Remove triangles from strain columns only, preserving NaN values
     for col in strain_cols:
-        df[col] = df[col].astype(str).str.replace('Δ', '')
+        df[col] = df[col].where(df[col].isna(), df[col].astype(str).str.replace('Δ', ''))
 
     valid_rows = []
     question_rows = []
+    excluded_ancestor = 0
+    excluded_low_coverage = 0
 
     for index, row in df.iterrows():
         row_string = str(row.values)
 
         # Exclude ancestor mutations
         if pd.notna(df.loc[index, ancestor]):
+            excluded_ancestor += 1
             continue
 
         if '?' in row_string:
             question_rows.append(row)
             strain_values = [str(row[col]) for col in strain_cols]
             other_values = [val for val in strain_values if val not in ('?', 'nan', 'NA', 'None')]
-            
+
             if not other_values:
+                excluded_low_coverage += 1
                 continue  # Skip rows with only '?' values
-        
+
         # Append valid rows only
         valid_rows.append(row)
 
-    if len(df) != len(valid_rows):
-        print(f'Excluded {len(df) - len(valid_rows)} low coverage rows')
+    if excluded_ancestor:
+        print(f'Excluded {excluded_ancestor} ancestor mutation rows')
+    if excluded_low_coverage:
+        print(f'Excluded {excluded_low_coverage} low coverage rows (only "?" values)')
 
     # Save valid rows
     df_clean = pd.DataFrame(valid_rows)

@@ -34,7 +34,7 @@ def find_summary_jsons(samples_dir):
     return dict(sorted(json_files.items()))
 
 
-def run_gdtools_compare(reference, gd_files, output_path):
+def run_gdtools_compare(gdtools_path, reference, gd_files, output_path):
     """
     Run gdtools COMPARE -f TSV on the provided gd_files.
 
@@ -51,7 +51,7 @@ def run_gdtools_compare(reference, gd_files, output_path):
             renamed_gd_paths.append(dest)
 
         cmd = [
-            'gdtools', 'COMPARE',
+            gdtools_path, 'COMPARE',
             '-f', 'TSV',
             '-o', output_path,
             reference,

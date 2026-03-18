@@ -7,7 +7,7 @@ from utils import get_strain_columns
 def load_coverage_averages(json_files):
     '''
     Read each sample's summary.json and extract average coverage depth.
-    Extracts: summary["references"]["referemce"]["seq_id"]["coverage_average"]
+    Extracts: summary["references"]["reference"]["seq_id"]["coverage_average"]
     Returns {sample_name: average} dict. Returns "NA" per sample on error.
     '''
     
@@ -25,11 +25,14 @@ def load_coverage_averages(json_files):
                 avg = seq_data.get('coverage_average')
                 if avg is not None:
                     cov_total += float(avg)
-                    seq_number += 1                
+                    seq_number += 1
                 else:
                     print(f'No coverage_average found in {json_path} for sample {sample}')
-                    coverage[sample] = pd.NA
-            coverage[sample] = round(cov_total / seq_number, 4)
+
+            if seq_number > 0:
+                coverage[sample] = round(cov_total / seq_number, 4)
+            else:
+                coverage[sample] = pd.NA
 
         except Exception as e:
             print(f'Error loading coverage from {json_path} for sample {sample}: {e}')

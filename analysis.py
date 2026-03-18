@@ -49,9 +49,10 @@ def mutation_analysis(df, ancestor, output_dir='.'):
         site_df = None
 
     # 2. GENE-LEVEL PARALLEL MUTATIONS (SAME GENE)
-    mutation_presence['gene'] = df['gene']
+    gene_presence = mutation_presence.copy()
+    gene_presence['gene'] = df['gene'].values
 
-    gene_strain_matrix = mutation_presence.groupby('gene')[strain_cols].any()
+    gene_strain_matrix = gene_presence.groupby('gene')[strain_cols].any()
     gene_count = gene_strain_matrix.sum(axis=1)
     gene_shared = gene_count > 1
 

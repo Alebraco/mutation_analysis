@@ -27,7 +27,7 @@ def classify_mutation(annotation):
         return 'nonsynonymous'
 
     # Point mutations
-    else:
+    elif '→' in annotation:
         cods = annotation.split('→')
 
         oldcodon = cods[0][-3:].upper()
@@ -42,3 +42,6 @@ def classify_mutation(annotation):
             return 'nonsense'
         else:
             return 'nonsynonymous'
+
+    else:
+        return 'unknown'
