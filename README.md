@@ -18,6 +18,9 @@ This pipeline supports two input modes and produces a set of mutation tables:
 - pandas
 - numpy
 - openpyxl
+- gdtools*
+
+\* gdtools is included in the breseq conda package.
 
 ## Installation
 
@@ -141,7 +144,7 @@ Generated for each threshold passed to `--threshold`:
 
 | File | Description |
 |------|-------------|
-| `mutation_summary.csv` | Per-strain statistics: mutation type proportions, total count, average frequency, and average coverage |
+| `mutation_summary.csv` | Per-strain statistics: mutation type proportions, total count, average frequency, and average coverage* |
 
 \* Average Coverage only available in Mode 1.
 
