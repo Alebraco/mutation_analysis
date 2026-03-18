@@ -129,8 +129,8 @@ All outputs are written to the directory specified by `--output` (default: `outp
 
 | File | Description |
 |------|-------------|
-| `cleaned_data.xlsx` | Filtered dataset with ancestor mutations and low-coverage rows removed |
-| `low_coverage_rows.xlsx` | Rows flagged with low coverage (`?` values), if any exist |
+| `cleaned_data.csv` | Filtered dataset with ancestor mutations and low-coverage rows removed |
+| `low_coverage_rows.csv` | Rows flagged with low coverage (`?` values), if any exist |
 
 ### 2. Frequency-Filtered Tables
 
@@ -138,7 +138,7 @@ Generated for each threshold passed to `--threshold`:
 
 | File | Description |
 |------|-------------|
-| `frequency_(threshold).xlsx` | Mutations that meet the frequency threshold in at least one strain |
+| `frequency_(threshold).csv` | Mutations that meet the frequency threshold in at least one strain |
 
 ### 3. Statistical Summary
 
@@ -159,9 +159,9 @@ Generated for each threshold passed to `--threshold`:
 
 | File | Description |
 |------|-------------|
-| `site_parallel_mutations.xlsx` | Mutations shared at the exact same genomic position across multiple strains |
-| `gene_parallel_mutations.xlsx` | Mutations in the same gene across multiple strains (any position) |
-| `unique_mutations.xlsx` | Mutations present in exactly one strain |
+| `site_parallel_mutations.csv` | Mutations shared at the exact same genomic position across multiple strains |
+| `gene_parallel_mutations.csv` | Mutations in the same gene across multiple strains (any position) |
+| `unique_mutations.csv` | Mutations present in exactly one strain |
 
 ---
 

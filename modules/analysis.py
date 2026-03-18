@@ -40,8 +40,8 @@ def mutation_analysis(df, ancestor, output_dir='.'):
         site_df['strains'] = site_df.apply(get_strain_list, axis=1)
 
         # Save site-level parallel mutations to file
-        site_file = os.path.join(output_dir, 'site_parallel_mutations.xlsx')
-        site_df.to_excel(site_file, index=False)
+        site_file = os.path.join(output_dir, 'site_parallel_mutations.csv')
+        site_df.to_csv(site_file, index=False)
         print(f'Saved site-level parallel mutations: {site_file}')
         print(f'Total site-level parallel mutations: {len(site_df)}')
     else:
@@ -83,8 +83,8 @@ def mutation_analysis(df, ancestor, output_dir='.'):
         
         gene_df = pd.DataFrame(gene_list).sort_values(by='strain_count', ascending=False)
         
-        gene_file = os.path.join(output_dir, 'gene_parallel_mutations.xlsx')
-        gene_df.to_excel(gene_file, index=False)
+        gene_file = os.path.join(output_dir, 'gene_parallel_mutations.csv')
+        gene_df.to_csv(gene_file, index=False)
         print(f'Saved gene-level parallel mutations: {gene_file}')
         print(f'Total gene-level parallel mutations: {len(gene_df)}')
     else:
@@ -103,8 +103,8 @@ def mutation_analysis(df, ancestor, output_dir='.'):
         
         isolate_df.insert(0, 'mutation_number', range(1, len(isolate_df) + 1))
 
-        isolate_file = os.path.join(output_dir, 'unique_mutations.xlsx')
-        isolate_df.to_excel(isolate_file, index=False)
+        isolate_file = os.path.join(output_dir, 'unique_mutations.csv')
+        isolate_df.to_csv(isolate_file, index=False)
         print(f'Saved unique mutations: {isolate_file}')
         print(f'Total unique mutations: {len(isolate_df)}')
     else:

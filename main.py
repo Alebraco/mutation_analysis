@@ -76,15 +76,15 @@ def main():
     df_clean, question_df = load_and_filter(input_file, args.ancestor, header_row)
 
     # Save cleaned data
-    clean_file = os.path.join(args.output, 'cleaned_data.xlsx')
-    df_clean.to_excel(clean_file, index=False)
+    clean_file = os.path.join(args.output, 'cleaned_data.csv')
+    df_clean.to_csv(clean_file, index=False)
     print(f'Saved cleaned data: {clean_file}')
     print(f'Cleaned data contains {len(df_clean)} rows.')
 
     # Save low coverage rows if any
     if question_df is not None:
-        question_file = os.path.join(args.output, 'low_coverage_rows.xlsx')
-        question_df.to_excel(question_file, index=False)
+        question_file = os.path.join(args.output, 'low_coverage_rows.csv')
+        question_df.to_csv(question_file, index=False)
         print(f'Saved low coverage rows: {question_file}')
 
     # Calculate basic statistics
@@ -93,8 +93,8 @@ def main():
     # Filter mutations based on frequency threshold
     for threshold in args.threshold:
         df_filtered = frequency_filter(df_clean, threshold, args.ancestor)
-        filtered_file = os.path.join(args.output, f'frequency_{threshold}.xlsx')
-        df_filtered.to_excel(filtered_file, index=False)
+        filtered_file = os.path.join(args.output, f'frequency_{threshold}.csv')
+        df_filtered.to_csv(filtered_file, index=False)
 
     # Run mutations analysis
     mutation_analysis(df_clean, args.ancestor, args.output)
