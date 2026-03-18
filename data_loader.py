@@ -1,16 +1,26 @@
 import pandas as pd
 import numpy as np
 import re
+import os 
+
 from utils import get_strain_columns
 from data_cleaner import clean_text
 from mutation_classifier import classify_mutation
 
 def load_and_filter(input_file, ancestor, header_row=0):
     '''
-    Load data and filter invalid rows
+    Load data and filter invalid rows.
+    Accepts both .xlsx and tabular files.
     '''
+
     print(f'Reading input file: {input_file}')
-    df = pd.read_excel(input_file, header=header_row)
+    ext = os.path.splitext(input_file)[1].lower()
+    if ext in ('.tsv', '.txt'):
+        df = pd.read_csv(input_file, sep='\t', header=header_row)
+    elif ext == '.csv':
+        df = pd.read_csv(input_file, header=header_row)
+    elif ext in ('.xlsx', '.xls'):
+        df = pd.read_excel(input_file, header=header_row)
 
     # Standardize column names
     df.columns = (
@@ -48,15 +58,19 @@ def load_and_filter(input_file, ancestor, header_row=0):
         if pd.notna(df.loc[index, ancestor]):
             continue
 
-        # Exclude rows with low coverage
         if '?' in row_string:
             question_rows.append(row)
-            continue
-
+            strain_values = [str(row[col]) for col in strain_cols]
+            other_values = [val for val in strain_values if val not in ('?', 'nan', 'NA', 'None')]
+            
+            if not other_values:
+                continue  # Skip rows with only '?' values
+        
         # Append valid rows only
         valid_rows.append(row)
 
-    print(f'Excluded {len(df) - len(valid_rows)} rows')
+    if len(df) != len(valid_rows):
+        print(f'Excluded {len(df) - len(valid_rows)} low coverage rows')
 
     # Save valid rows
     df_clean = pd.DataFrame(valid_rows)

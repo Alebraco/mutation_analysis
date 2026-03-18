@@ -1,13 +1,48 @@
 import os
+import json
 import pandas as pd
 import numpy as np
 from utils import get_strain_columns
 
-def calculate_basic_stats(df, ancestor, output_dir='.'):
+def load_coverage_averages(json_files):
+    '''
+    Read each sample's summary.json and extract average coverage depth.
+    Extracts: summary["references"]["referemce"]["seq_id"]["coverage_average"]
+    Returns {sample_name: average} dict. Returns "NA" per sample on error.
+    '''
+    
+    coverage = {}
+    for sample, json_path in json_files.items():
+        try:
+            with open(json_path) as f:
+                summary = json.load(f)
+            
+            reference = summary.get('references', {}).get('reference', {})
+            cov_total = 0.0
+            seq_number = 0
+
+            for seq_id, seq_data in reference.items():
+                avg = seq_data.get('coverage_average')
+                if avg is not None:
+                    cov_total += float(avg)
+                    seq_number += 1                
+                else:
+                    print(f'No coverage_average found in {json_path} for sample {sample}')
+                    coverage[sample] = pd.NA
+            coverage[sample] = round(cov_total / seq_number, 4)
+
+        except Exception as e:
+            print(f'Error loading coverage from {json_path} for sample {sample}: {e}')
+            coverage[sample] = pd.NA
+    return coverage
+
+
+def calculate_basic_stats(df, ancestor, output_dir='.', json_files=None):
     '''
     Calculate Basic Statistics per line:
-    Mutation Classification, Number of Mutations, and Average Frequency
+    Mutation Classification, Number of Mutations, Average Frequency, Average Coverage
     '''
+
     os.makedirs(output_dir, exist_ok=True)
     strain_cols = get_strain_columns(df, ancestor)
 
@@ -22,7 +57,7 @@ def calculate_basic_stats(df, ancestor, output_dir='.'):
         avg_frequency = pd.to_numeric(strain_df[strain], errors='coerce').mean()
 
         # Calculate mutation proportions
-        proportions = (type_counts / total)
+        proportions = (type_counts / total) if total > 0 else type_counts
         proportions = proportions.round(6)
 
         results.append({
@@ -32,13 +67,18 @@ def calculate_basic_stats(df, ancestor, output_dir='.'):
             'Intergenic': proportions.get('intergenic', 0),
             'NonSense': proportions.get('nonsense', 0),
             'Noncoding': proportions.get('noncoding', 0),
+            'Pseudogene': proportions.get('pseudogene', 0),
             'Total Mutations': total,
-            'Average Frequency': avg_frequency
+            'Average Frequency': avg_frequency,
         })
 
     summary_df = pd.DataFrame(results)
-    summary_file = os.path.join(output_dir, 'mutation_summary.xlsx')
-    summary_df.to_excel(summary_file, index=False)
+
+    if json_files is not None:
+        coverage = load_coverage_averages(json_files)
+        summary_df['Average Coverage'] = summary_df['Line'].map(coverage)
+    summary_file = os.path.join(output_dir, 'mutation_summary.csv')
+    summary_df.to_csv(summary_file, index=False)
     print(f'Saved mutation summary: {summary_file}')
     return summary_df
 
@@ -53,13 +93,5 @@ def frequency_filter(df, min_frequency, ancestor):
     keep_rows = (values >= min_frequency).any(axis=1)
     df_filtered = df[keep_rows]
     print(f'{len(df_filtered)} mutations meet frequency threshold: {min_frequency}')
-
-    ## Set values below threshold to NA, keep only strains that meet threshold
-    # for strain in strain_cols:
-    #     values = pd.to_numeric(df_filtered[strain], errors='coerce')
-    #     df_filtered.loc[values < min_frequency, strain] = pd.NA
-
-    # # Drop mutations not meeting threshold in any strain
-    # df_filtered = df_filtered.dropna(subset=strain_cols, how='all')
 
     return df_filtered
