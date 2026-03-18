@@ -13,9 +13,9 @@ Two input modes:
 import argparse
 import os
 import sys
-from data_loader import load_and_filter
-from statistics import calculate_basic_stats, frequency_filter
-from analysis import mutation_analysis
+from modules.data_loader import load_and_filter
+from modules.statistics import calculate_basic_stats, frequency_filter
+from modules.analysis import mutation_analysis
 
 def main():
     parser = argparse.ArgumentParser(description='Analyze mutation data from breseq output files.')
@@ -58,7 +58,7 @@ def main():
     os.makedirs(args.output, exist_ok=True)
 
     if use_mode1:
-        from gdtools_runner import find_gd_files, find_summary_jsons, run_gdtools_compare
+        from modules.gdtools_runner import find_gd_files, find_summary_jsons, run_gdtools_compare
         gd_files = find_gd_files(args.samples_dir)
         if not gd_files:
             sys.exit(f'No output.gd files found in {args.samples_dir}')

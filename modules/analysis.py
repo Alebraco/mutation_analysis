@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-from utils import get_strain_columns
+from .utils import get_strain_columns
 
 def mutation_analysis(df, ancestor, output_dir='.'):
     '''

@@ -1,5 +1,5 @@
 import pandas as pd
-from utils import codon_table
+from .utils import codon_table
 
 def classify_mutation(annotation):
     '''

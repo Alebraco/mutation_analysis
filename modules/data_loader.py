@@ -3,9 +3,9 @@ import numpy as np
 import re
 import os 
 
-from utils import get_strain_columns
-from data_cleaner import clean_text
-from mutation_classifier import classify_mutation
+from .utils import get_strain_columns
+from .data_cleaner import clean_text
+from .mutation_classifier import classify_mutation
 
 def load_and_filter(input_file, ancestor, header_row=0):
     '''

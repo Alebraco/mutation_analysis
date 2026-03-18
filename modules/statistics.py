@@ -2,7 +2,7 @@ import os
 import json
 import pandas as pd
 import numpy as np
-from utils import get_strain_columns
+from .utils import get_strain_columns
 
 def load_coverage_averages(json_files):
     '''
