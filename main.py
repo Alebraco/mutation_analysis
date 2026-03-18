@@ -37,7 +37,7 @@ def main():
     
     # Mode 2: pre-processed mutation table
     mode2 = parser.add_argument_group('Mode 2: pre-processed mutation table')
-    mode2.add_argument('input-file', nargs='?',
+    mode2.add_argument('input_file', nargs='?',
                        help='Input file path (.xlsx, .tsv, .csv)')
     mode2.add_argument('--header-row', type=int, default=0,
                           help='Header row index for input file (default: 0)')
