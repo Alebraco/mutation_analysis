@@ -71,6 +71,7 @@ def calculate_basic_stats(df, ancestor, output_dir='.', json_files=None):
             'Nonsense': proportions.get('nonsense', 0),
             'Noncoding': proportions.get('noncoding', 0),
             'Pseudogene': proportions.get('pseudogene', 0),
+            'Unknown': proportions.get('unknown', 0),
             'Total Mutations': total,
             'Average Frequency': avg_frequency,
         })
