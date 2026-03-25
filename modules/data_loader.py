@@ -89,5 +89,10 @@ def load_and_filter(input_file, ancestor, header_row=0):
 
     print('Classifying mutations.')
     df_clean['mutation_type'] = df_clean['annotation'].apply(classify_mutation)
+    
+    unknowns = df_clean[df_clean['mutation_type'] == 'unknown']
+    if not unknowns.empty:
+        print(f'{len(unknowns)} mutations classified as unknown. Consider reviewing their annotations for potential issues.')
+        print(unknowns.value_counts().to_string())
 
     return df_clean, question_df
