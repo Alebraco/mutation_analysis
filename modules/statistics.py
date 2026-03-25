@@ -68,7 +68,7 @@ def calculate_basic_stats(df, ancestor, output_dir='.', json_files=None):
             'Nonsynonymous': proportions.get('nonsynonymous', 0),
             'Synonymous': proportions.get('synonymous', 0),
             'Intergenic': proportions.get('intergenic', 0),
-            'NonSense': proportions.get('nonsense', 0),
+            'Nonsense': proportions.get('nonsense', 0),
             'Noncoding': proportions.get('noncoding', 0),
             'Pseudogene': proportions.get('pseudogene', 0),
             'Total Mutations': total,

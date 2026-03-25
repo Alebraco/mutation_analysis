@@ -44,5 +44,6 @@ def classify_mutation(annotation):
             return 'nonsynonymous'
 
     else:
+        print(f'Warning: Unrecognized annotation format: {annotation}')
         return 'unknown'
     
