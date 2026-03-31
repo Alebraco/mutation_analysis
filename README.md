@@ -20,7 +20,7 @@ This pipeline supports two input modes and produces a set of mutation tables:
 - openpyxl
 - gdtools*
 
-\* gdtools is included in the breseq conda package.
+\* *gdtools* is included in the *breseq* conda package.
 
 ## Installation
 
