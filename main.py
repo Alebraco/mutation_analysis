@@ -25,6 +25,8 @@ def main():
                        help='Output directory (default: output_files/)')
     parser.add_argument('--threshold', nargs='+', type=float, default=[],
                         help='Mutation filtering based on frequency threshold (default: None)')
+    parser.add_argument('--plot', nargs='+', choices=['bubble', 'spectrum'],
+                        help='Generate plots: bubble (summary bubble plot), spectrum (stacked mutation types)')
 
     # Mode 1: raw breseq sample directory
     mode1 = parser.add_argument_group('Mode 1: raw breseq output')
@@ -87,6 +89,21 @@ def main():
 
     # Calculate basic statistics
     calculate_basic_stats(df_clean, args.ancestor, args.output, json_files=json_files)
+
+    # Generate plots if requested
+    if args.plot:
+        summary_file = os.path.join(args.output, 'mutation_summary.csv')
+        if 'bubble' in args.plot:
+            from modules.plotting import plot_mutation_bubble
+            plot_mutation_bubble(summary_file,
+                                output_file=os.path.join(args.output, 'bubble_plot.png'),
+                                show=False)
+        if 'spectrum' in args.plot:
+            from modules.plotting import plot_mutation_spectrum
+            plot_mutation_spectrum(summary_file,
+                                  output_file=os.path.join(args.output, 'mutation_spectrum.png'),
+                                  show=False)
+        print("Plots saved to output directory.")
 
     # Filter mutations based on frequency threshold
     for threshold in args.threshold:

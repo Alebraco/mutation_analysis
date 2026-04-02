@@ -11,12 +11,14 @@ This pipeline supports two input modes and produces a set of mutation tables:
 - **Frequency-based filtering**: Generates filtered datasets at user-defined frequency thresholds
 - **Statistical summaries**: Calculates mutation class proportions, average frequencies, and (optionally) average coverage per strain
 - **Mutation analysis**: Identifies parallel mutations at the site and gene level, and unique mutations per strain
+- **Plotting** *(optional)*: Generates bubble plots and mutation spectrum charts from the summary data
 
 ## Requirements
 
-- Python 3
+- Python 3.9+
 - pandas
 - numpy
+- matplotlib
 - openpyxl
 - gdtools*
 
@@ -29,10 +31,15 @@ This pipeline supports two input modes and produces a set of mutation tables:
 git clone https://github.com/Alebraco/mutation_analysis
 cd mutation_analysis
 
-# Install dependencies
-conda create -n mutation_analysis -c bioconda pandas numpy openpyxl breseq
+# Create and activate the conda environment
+conda create -n mutation_analysis -c bioconda pandas numpy matplotlib openpyxl breseq
 conda activate mutation_analysis
+
+# Optional: Install as pip package to use `mutanalysis` instead of `python main.py`
+pip install .
 ```
+
+After `pip install .`, the pipeline can be run as `mutanalysis` instead of `python main.py`.
 
 ## Usage
 
@@ -62,21 +69,23 @@ samples_dir/
 > **Note:** The reference file can be a GenBank (`.gbk`), FASTA (`.fasta`), or GFF (`.gff`) file.
 
 ```bash
-python main.py <ancestor> \
+mutanalysis <ancestor> \
   --samples-dir <samples_dir> \
   --reference <reference.gbk> \
   [--gdtools <path/to/gdtools>] \
   [--output <output_dir>] \
-  [--threshold 0.25 0.5 0.75 1.0]
+  [--threshold 0.25 0.5 0.75 1.0] \
+  [--plot bubble spectrum]
 ```
 
 **Example:**
 ```bash
-python main.py KZ_19 \
+mutanalysis KZ_19 \
   --samples-dir samples \
   --reference reference.gbk \
   --output results \
-  --threshold 0.25 0.5 1.0
+  --threshold 0.25 0.5 1.0 \
+  --plot bubble spectrum
 ```
 > **Note:** A single or multiple frequency threshold values may be used (e.g. `--threshold 0.75`; `--threshold 0.5 0.8`)
 
@@ -89,17 +98,19 @@ Use this mode if a mutation table is already available (generated from a previou
 **Place your input file anywhere accessible and pass its path directly:**
 
 ```bash
-python main.py <ancestor> <input_file> \
+mutanalysis <ancestor> <input_file> \
   [--header-row <int>] \
   [--output <output_dir>] \
-  [--threshold 0.25 0.5 0.75 1.0]
+  [--threshold 0.25 0.5 0.75 1.0] \
+  [--plot bubble spectrum]
 ```
 
 **Example:**
 ```bash
-python main.py KZ_19 sample_breseq_output.xlsx \
+mutanalysis KZ_19 sample_breseq_output.xlsx \
   --output results \
-  --threshold 0.5 1.0
+  --threshold 0.5 1.0 \
+  --plot bubble
 ```
 
 ---
@@ -115,6 +126,7 @@ python main.py KZ_19 sample_breseq_output.xlsx \
 | `--reference` | 1 | Yes* | — | Reference genome file used in the original breseq run |
 | `--gdtools` | 1 | No | `gdtools` | Path to gdtools executable (not needed if using **conda**)|
 | `input-file` | 2 | Yes* | — | Path to pre-processed mutation table |
+| `--plot` | Both | No | — | Space-separated plot types to generate: `bubble`, `spectrum` |
 | `--header-row` | 2 | No | `0` | Header row index in the input file |
 
 \* Required within that mode.
@@ -155,7 +167,16 @@ Generated for each threshold passed to `--threshold`:
 | Strain_A | 0.65 | 0.20 | 0.10 | 0.03 | 0.02 | 0.00 | 120 | 0.875 | 142.3 |
 | Strain_B | 0.58 | 0.25 | 0.12 | 0.04 | 0.01 | 0.00 | 98 | 0.820 | 138.7 |
 
-### 4. Mutation Analysis
+### 4. Plots
+
+Generated when `--plot` is used:
+
+| File | Description |
+|------|-------------|
+| `bubble_plot.png` | Bubble plot of mutation frequency vs. nonsynonymous proportion (sized by total mutations) |
+| `mutation_spectrum.png` | Stacked bar chart of mutation type proportions per group/timepoint |
+
+### 5. Mutation Analysis
 
 | File | Description |
 |------|-------------|
@@ -187,12 +208,14 @@ Mutations are classified from the `annotation` column in the following priority 
 ```
 mutation_analysis/
 ├── main.py              # Orchestrating script
+├── pyproject.toml       # Package config
 └── modules/
     ├── analysis.py          # Parallel and unique mutation detection
     ├── data_cleaner.py      # Removes nonstandard characters
     ├── data_loader.py       # Loads, standardizes, and filters input data
     ├── gdtools_runner.py    # Launches gdtools COMPARE (Mode 1)
     ├── mutation_classifier.py  # Classifies mutations by type
+    ├── plotting.py          # Bubble plot and mutation spectrum charts
     ├── statistics.py        # Summary statistics and frequency filtering
     └── utils.py             # Shared data structures (e.g. codon table)
 ```

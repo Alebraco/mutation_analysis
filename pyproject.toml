@@ -1,0 +1,14 @@
+[project]
+name = "mutation-analysis"
+version = "1.0.0"
+description = "Mutation analysis pipeline for breseq output files"
+requires-python = ">=3.9"
+dependencies = [
+    "pandas",
+    "numpy",
+    "matplotlib",
+    "openpyxl",
+]
+
+[project.scripts]
+mutanalysis = "main:main"

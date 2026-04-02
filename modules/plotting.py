@@ -389,7 +389,7 @@ def plot_mutation_spectrum(
         "Nonsynonymous",
         "Synonymous",
         "Intergenic",
-        "NonSense",
+        "Nonsense",
         "Noncoding"
     ]
 
@@ -430,7 +430,7 @@ def plot_mutation_spectrum(
         "Nonsynonymous": "#4CAF50",  # green
         "Synonymous": "#2196F3",     # blue
         "Intergenic": "#FF9800",     # orange
-        "NonSense": "#F44336",       # red
+        "Nonsense": "#F44336",       # red
         "Noncoding": "#9E9E9E"       # gray
     }
 
