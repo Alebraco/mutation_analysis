@@ -85,7 +85,7 @@ mutanalysis KZ_19 \
   --reference reference.gbk \
   --output results \
   --threshold 0.25 0.5 1.0 \
-  --plot bubble spectrum
+  --plot spectrum
 ```
 > **Note:** A single or multiple frequency threshold values may be used (e.g. `--threshold 0.75`; `--threshold 0.5 0.8`)
 
