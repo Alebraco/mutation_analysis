@@ -54,7 +54,7 @@ def run_gdtools_compare(gdtools_path, reference, gd_files, output_path):
             gdtools_path, 'COMPARE',
             '-f', 'TSV',
             '-o', output_path,
-            reference,
+            '-r', reference,
         ] + renamed_gd_paths
 
         print(f'Running: {" ".join(cmd)}')
