@@ -65,9 +65,9 @@ def main():
         if not gd_files:
             sys.exit(f'No output.gd files found in {args.samples_dir}')
         json_files = find_summary_jsons(args.samples_dir)
-        tsv_path = os.path.join(args.output, 'mutation_data.tsv')
-        run_gdtools_compare(args.gdtools, args.reference, gd_files, tsv_path)
-        input_file = tsv_path
+        compare_path = os.path.join(args.output, 'mutation_data.csv')
+        run_gdtools_compare(args.gdtools, args.reference, gd_files, compare_path)
+        input_file = compare_path
         header_row = 0
     else:
         input_file = args.input_file

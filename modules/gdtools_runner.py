@@ -2,6 +2,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import pandas as pd
 
 
 def find_gd_files(samples_dir):
@@ -36,7 +37,7 @@ def find_summary_jsons(samples_dir):
 
 def run_gdtools_compare(gdtools_path, reference, gd_files, output_path):
     """
-    Run gdtools COMPARE -f TSV on the provided gd_files.
+    Run gdtools COMPARE -f TABLE on the provided gd_files.
 
     Because gdtools names output columns after input filenames, passing output.gd
     directly would produce a column named 'output' for every sample.
@@ -52,11 +53,20 @@ def run_gdtools_compare(gdtools_path, reference, gd_files, output_path):
 
         cmd = [
             gdtools_path, 'COMPARE',
-            '-f', 'TSV',
+            '-f', 'TABLE',
             '-o', output_path,
             '-r', reference,
         ] + renamed_gd_paths
 
         print(f'Running: {" ".join(cmd)}')
         subprocess.run(cmd, check=True)
+
+        # Normalize absent-mutation marker.
+        df = pd.read_csv(output_path, dtype=str, keep_default_na=False)
+        sample_cols = [c for c in gd_files if c in df.columns]
+        for col in sample_cols:
+            df.loc[df[col] == '0', col] = ''
+        df = df.drop(columns='type', errors='ignore')
+        df.to_csv(output_path, index=False)
+
         print(f'Saved gdtools output: {output_path}')
