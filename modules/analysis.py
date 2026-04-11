@@ -43,6 +43,7 @@ def mutation_analysis(df, ancestor, output_dir='.'):
         site_file = os.path.join(output_dir, 'site_parallel_mutations.csv')
         site_df.to_csv(site_file, index=False)
         print(f'Total site-level parallel mutations: {len(site_df)}')
+        print(f'  Saved: {site_file}')
     else:
         print('No site-level parallel mutations found.')
         site_df = None
@@ -84,7 +85,8 @@ def mutation_analysis(df, ancestor, output_dir='.'):
         
         gene_file = os.path.join(output_dir, 'gene_parallel_mutations.csv')
         gene_df.to_csv(gene_file, index=False)
-        print(f'Total gene-level parallel mutations: {len(gene_df)}')
+        print(f'Gene-level parallel mutations: {len(gene_df)} genes')
+        print(f'  Saved: {gene_file}')
     else:
         print('No gene-level parallel mutations found.')
         gene_df = None
@@ -104,6 +106,7 @@ def mutation_analysis(df, ancestor, output_dir='.'):
         isolate_file = os.path.join(output_dir, 'unique_mutations.csv')
         isolate_df.to_csv(isolate_file, index=False)
         print(f'Total unique mutations: {len(isolate_df)}')
+        print(f'  Saved: {isolate_file}')
     else:
         print('No unique mutations found.')
         isolate_df = None

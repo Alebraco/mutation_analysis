@@ -69,4 +69,4 @@ def run_gdtools_compare(gdtools_path, reference, gd_files, output_path):
         df = df.drop(columns='type', errors='ignore')
         df.to_csv(output_path, index=False)
 
-        print(f'Saved gdtools output: {output_path}')
+        print(f'Saved gdtools output: {output_path}\n')
