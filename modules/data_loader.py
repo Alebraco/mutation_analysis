@@ -95,4 +95,4 @@ def load_and_filter(input_file, ancestor, header_row=0):
         print(f'{len(unknowns)} mutations classified as unknown.')
         print(unknowns.value_counts().to_string())
 
-    return df_clean, question_df
+    return df_clean, question_df, ancestor

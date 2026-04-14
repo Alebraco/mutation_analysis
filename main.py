@@ -75,7 +75,7 @@ def main():
         json_files = None
 
     # Load and filter data
-    df_clean, question_df = load_and_filter(input_file, args.ancestor, header_row)
+    df_clean, question_df, ancestor = load_and_filter(input_file, args.ancestor, header_row)
 
     # Save cleaned data
     clean_file = os.path.join(args.output, 'cleaned_data.csv')
@@ -90,7 +90,7 @@ def main():
         print(f'  Saved: {question_file}')
 
     # Calculate basic statistics
-    calculate_basic_stats(df_clean, args.ancestor, args.output, json_files=json_files)
+    calculate_basic_stats(df_clean, ancestor, args.output, json_files=json_files)
 
     # Generate plots if requested
     if args.plot:
@@ -109,12 +109,12 @@ def main():
 
     # Filter mutations based on frequency threshold
     for threshold in args.threshold:
-        df_filtered = frequency_filter(df_clean, threshold, args.ancestor)
+        df_filtered = frequency_filter(df_clean, threshold, ancestor)
         filtered_file = os.path.join(args.output, f'frequency_{threshold}.csv')
         df_filtered.to_csv(filtered_file, index=False)
 
     # Run mutations analysis
-    mutation_analysis(df_clean, args.ancestor, args.output)
+    mutation_analysis(df_clean, ancestor, args.output)
 
     print("Analysis complete.")
 

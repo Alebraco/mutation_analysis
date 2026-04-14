@@ -80,6 +80,7 @@ def calculate_basic_stats(df, ancestor, output_dir='.', json_files=None):
 
     if json_files is not None:
         coverage = load_coverage_averages(json_files)
+        coverage = {k.lower(): v for k, v in coverage.items()}
         summary_df['Average Coverage'] = summary_df['Line'].map(coverage)
     summary_file = os.path.join(output_dir, 'mutation_summary.csv')
     summary_df.to_csv(summary_file, index=False)
