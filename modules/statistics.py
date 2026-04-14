@@ -8,7 +8,7 @@ def load_coverage_averages(json_files):
     '''
     Read each sample's summary.json and extract average coverage depth.
     Extracts: summary["references"]["reference"]["seq_id"]["coverage_average"]
-    Returns {sample_name: average} dict. Returns "NA" per sample on error.
+    Returns {sample_name: average coverage} dict. 
     '''
     
     coverage = {}
