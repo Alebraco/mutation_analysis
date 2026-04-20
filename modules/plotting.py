@@ -6,7 +6,6 @@ Includes:
 - Mutation spectrum plot
 - Time trajectory plot
 """
-
 from __future__ import annotations
 
 import re
@@ -32,14 +31,14 @@ def _validate_columns(df: pd.DataFrame, required_cols: List[str]) -> None:
 def _parse_line_label(line: str) -> Tuple[Optional[str], Optional[str], Optional[str]]:
     """
     Parse labels like:
-    - SM-D120-ME1-P
-    - D120-ME1
+    - sm-d120-me1-p
+    - d120-me1
     Returns: (day, group, replicate)
     """
     if pd.isna(line):
         return None, None, None
 
-    match = re.search(r"(D\d+)-([A-Za-z]+)(\d+)", str(line))
+    match = re.search(r"([dD]\d+)-([A-Za-z]+)(\d+)", str(line))
     if not match:
         return None, None, None
 
@@ -541,9 +540,120 @@ def plot_time_trajectory(
 
     return fig
 
+def plot_allele_distribution(
+    input_file: str,
+    output_file: Optional[str] = None,
+    figsize: tuple = (12, 6),
+    dpi: int = 200,
+    show: bool = True,
+):
+    """
+    Plot allele frequency distribution from cleaned_data.
+    Creates two panels: one for ME and one for PE, with overlaid histograms by Day.
+    """
 
+    input_path = Path(input_file)
+    suffix = input_path.suffix.lower()
 
+    if suffix == ".csv":
+        df = pd.read_csv(input_path)
+    elif suffix == ".tsv":
+        df = pd.read_csv(input_path, sep="\t")
+    elif suffix in {".xlsx", ".xls"}:
+        df = pd.read_excel(input_path)
+    else:
+        raise ValueError(f"Unsupported input file format: {suffix}")
 
+    required_cols = ["seq_id", "position", "mutation"]
+    _validate_columns(df, required_cols)
+
+    # All remaining columns are sample columns containing allele frequencies
+    value_cols = [col for col in df.columns if col not in required_cols]
+
+    # Wide -> long
+    long_df = df.melt(
+        id_vars=required_cols,
+        value_vars=value_cols,
+        var_name="Sample",
+        value_name="Frequency"
+    )
+
+    # Keep valid numeric frequencies only
+    long_df["Frequency"] = pd.to_numeric(long_df["Frequency"], errors="coerce")
+    long_df = long_df.dropna(subset=["Frequency"]).copy()
+
+    # Parse sample labels into Day / Group / Replicate
+    parsed = long_df["Sample"].apply(lambda x: pd.Series(_parse_line_label(x)))
+    parsed.columns = ["Day", "Group", "Replicate"]
+    long_df[["Day", "Group", "Replicate"]] = parsed
+
+    # Normalize for consistency
+    long_df["Group"] = long_df["Group"].astype(str).str.lower()
+    long_df["Day"] = long_df["Day"].astype(str).str.upper()
+
+    # Keep only rows with parsed Group/Day
+    long_df = long_df[
+        long_df["Group"].isin(["me", "pe"]) &
+        long_df["Day"].str.match(r"D\d+", na=False)
+    ].copy()
+
+    if long_df.empty:
+        raise ValueError("No valid allele frequency data found after parsing sample labels.")
+
+    days = _sort_day_labels(list(dict.fromkeys(long_df["Day"].dropna().astype(str))))
+    groups = ["me", "pe"]
+
+    day_colors = {
+        "D60": "#5B9BD5",
+        "D120": "#ED7D31",
+        "D180": "#70AD47",
+    }
+
+    fig, axes = plt.subplots(1, 2, figsize=figsize, dpi=dpi, sharey=True)
+
+    for ax, group in zip(axes, groups):
+        group_df = long_df[long_df["Group"] == group]
+
+        for day in days:
+            sub = group_df[group_df["Day"] == day]
+            if sub.empty:
+                continue
+
+            ax.hist(
+                sub["Frequency"],
+                bins=30,
+                alpha=0.5,
+                label=day,
+                color=day_colors.get(day, None),
+                edgecolor="white",
+            )
+
+        ax.set_title(group.upper(), fontsize=13)
+        ax.set_xlabel("Allele Frequency", fontsize=12)
+        ax.grid(True, linestyle="--", alpha=0.25)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+
+    axes[0].set_ylabel("Count", fontsize=12)
+    for ax in axes:
+        ax.legend(
+        title="Day",
+        loc="upper right",
+        fontsize=8,
+        title_fontsize=9,
+        frameon=False
+        )
+
+    fig.suptitle("Allele Frequency Distribution by Group", fontsize=14, y=1.02)
+    plt.tight_layout()
+
+    if output_file is not None:
+        fig.savefig(output_file, dpi=300, bbox_inches="tight")
+
+    if show:
+        plt.show()
+
+    return fig
 
 
 
