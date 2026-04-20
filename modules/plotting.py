@@ -4,7 +4,8 @@ Plotting utilities for mutation analysis pipeline.
 Includes:
 - Bubble plot (mutation summary)
 - Mutation spectrum plot
-- Time trajectory plot
+- Time trajectory plot （Not Used）
+- Allele Freq Plot by Group
 """
 from __future__ import annotations
 
