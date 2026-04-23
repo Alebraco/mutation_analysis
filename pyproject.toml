@@ -8,6 +8,7 @@ dependencies = [
     "numpy",
     "matplotlib",
     "openpyxl",
+    "biopython",
 ]
 
 [project.scripts]
@@ -18,5 +19,5 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["modules"]
+packages = ["modules", "modules.simulation"]
 py-modules = ["main"]
