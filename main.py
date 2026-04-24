@@ -202,7 +202,7 @@ def run_simulation(args: argparse.Namespace, parser: argparse.ArgumentParser, ki
             reference_path=args.reference,
             output_dir=args.output,
             file_stem=file_stem,
-            gff_path=args.companion,
+            companion_path=args.companion,
             n_replicates=args.replicates,
             seed=args.seed,
         )
@@ -214,7 +214,7 @@ def run_simulation(args: argparse.Namespace, parser: argparse.ArgumentParser, ki
             reference_path=args.reference,
             output_dir=args.output,
             file_stem=file_stem,
-            gff_path=args.companion,
+            companion_path=args.companion,
             n_replicates=args.replicates,
             seed=args.seed,
         )

@@ -19,7 +19,7 @@ def run_parallel_simulation(
     reference_path: str,
     output_dir: str,
     file_stem: str,
-    gff_path: str | None = None,
+    companion_path: str | None = None,
     n_replicates: int = 10000,
     freq_threshold: float = 0.05,
     seed: int | None = None,
@@ -29,7 +29,7 @@ def run_parallel_simulation(
     number of parallel sites and parallel genes per strain pair.
     '''
 
-    seq, gff = load_reference(reference_path, gff_path=gff_path)
+    seq, gff = load_reference(reference_path, companion_path=companion_path)
     alpha, outcome, load = estimate_mutation_model(df_clean, ancestor, freq_threshold)
     if len(load) < 2:
         raise RuntimeError(
