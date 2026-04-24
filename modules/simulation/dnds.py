@@ -1,7 +1,6 @@
 import csv
 import os
 import random
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -14,7 +13,7 @@ from .mutation_model import (
 from .reference_loader import load_reference
 from .sequence_utils import rev_comp, translate
 
-_CATEGORIES = ('intergenic', 'RNA', 'S', 'NS', 'STOP')
+CATEGORIES = ('intergenic', 'RNA', 'S', 'NS', 'STOP')
 
 
 def run_dnds_simulation(
@@ -23,28 +22,28 @@ def run_dnds_simulation(
     reference_path: str,
     output_dir: str,
     file_stem: str,
-    gff_path: Optional[str] = None,
+    gff_path: str | None = None,
     n_replicates: int = 1000,
     freq_threshold: float = 0.05,
-    seed: Optional[int] = None,
+    seed: int | None = None,
 ) -> None:
     '''
-    Simulate `n_replicates` neutral-mutation replicates and write the expected
-    per-category fractions to <output_dir>/expected/expdNdS_<stem>.csv and
-    avg_expdNdS_<stem>.csv.
+    Simulate `n_replicates` neutral mutation replicates and write the expected
+    mutation proportions.
     '''
+
     seq, gff = load_reference(reference_path, gff_path=gff_path)
     alpha, outcome, load = estimate_mutation_model(df_clean, ancestor, freq_threshold)
     if not load:
         raise RuntimeError(
-            f'No strain has mutations at freq >= {freq_threshold}; nothing to simulate.'
+            f'No strain has mutations at freq >= {freq_threshold}. Cannot run dN/dS simulation.'
         )
     pointer, total_length = build_contig_pointers(seq)
     rng = random.Random(seed)
 
     # typing[st][category] -> list of per-replicate counts
     typing: dict[str, dict[str, list[float]]] = {
-        st: {cat: [] for cat in _CATEGORIES} for st in load
+        st: {cat: [] for cat in CATEGORIES} for st in load
     }
 
     for rep_idx in range(1, n_replicates + 1):
@@ -53,8 +52,8 @@ def run_dnds_simulation(
 
         for st in load:
             picks = draw_replicate(seq, pointer, total_length, alpha, outcome, load[st], rng)
-            counts = _classify_replicate(seq, gff, picks)
-            for cat in _CATEGORIES:
+            counts = classify_replicate(seq, gff, picks)
+            for cat in CATEGORIES:
                 typing[st][cat].append(float(counts[cat]))
 
     os.makedirs(os.path.join(output_dir, 'expected'), exist_ok=True)
@@ -62,7 +61,7 @@ def run_dnds_simulation(
     avg_path = os.path.join(output_dir, 'expected', f'avg_expdNdS_{file_stem}.csv')
 
     averages: dict[str, dict[str, float]] = {
-        st: {cat: float(np.mean(typing[st][cat])) for cat in _CATEGORIES}
+        st: {cat: float(np.mean(typing[st][cat])) for cat in CATEGORIES}
         for st in typing
     }
 
@@ -78,29 +77,30 @@ def run_dnds_simulation(
                 writer.writerow([st, cat, coeff * mean])
     print(f'  Saved: {per_strain_path}')
 
-    super_average: dict[str, list[float]] = {cat: [] for cat in _CATEGORIES}
+    super_average: dict[str, list[float]] = {cat: [] for cat in CATEGORIES}
     for cats in averages.values():
-        for cat in _CATEGORIES:
+        for cat in CATEGORIES:
             super_average[cat].append(cats[cat])
 
-    total = sum(float(np.mean(super_average[cat])) for cat in _CATEGORIES)
+    total = sum(float(np.mean(super_average[cat])) for cat in CATEGORIES)
+
     with open(avg_path, 'w', newline='') as h:
         writer = csv.writer(h)
         writer.writerow(['category', 'expected_percent'])
         if total > 0:
             coeff = 100.0 / total
-            for cat in _CATEGORIES:
+            for cat in CATEGORIES:
                 writer.writerow([cat, coeff * float(np.mean(super_average[cat]))])
     print(f'  Saved: {avg_path}')
 
 
-def _classify_replicate(
+def classify_replicate(
     seq: dict[str, str],
     gff: dict[str, dict[int, list]],
     picks: list[tuple[str, int, str, str]],
 ) -> dict[str, int]:
-    '''Apply the simulated mutations and tally the categories for a single replicate.'''
-    counts = {cat: 0 for cat in _CATEGORIES}
+    '''Apply the simulated mutations and counts the categories for a single replicate.'''
+    counts = {cat: 0 for cat in CATEGORIES}
 
     mutated = {c: list(s) for c, s in seq.items()}
     for contig, pos, n1, n2 in picks:
@@ -113,14 +113,14 @@ def _classify_replicate(
         mutated[contig][idx] = n2
     mutated_seqs = {c: ''.join(chars) for c, chars in mutated.items()}
 
-    for contig, pos, _n1, _n2 in picks:
+    for contig, pos, n1, n2 in picks:
         features = gff.get(contig, {}).get(pos)
         if not features:
             counts['intergenic'] += 1
             continue
 
         for feature in features:
-            _name, start, end, strand, gene_type = feature
+            name, start, end, strand, gene_type = feature
             if gene_type != 'CDS':
                 counts['RNA'] += 1
                 break
@@ -131,7 +131,6 @@ def _classify_replicate(
                 cds_new = rev_comp(cds_new)
                 cds_old = rev_comp(cds_old)
             if len(cds_old) % 3 != 0:
-                # Skip CDS whose length isn't a multiple of 3 (matches source behavior).
                 continue
             new_prot = translate(cds_new)
             old_prot = translate(cds_old)

@@ -2,7 +2,6 @@ import csv
 import os
 import random
 from itertools import combinations
-from typing import Optional
 
 import pandas as pd
 
@@ -20,21 +19,21 @@ def run_parallel_simulation(
     reference_path: str,
     output_dir: str,
     file_stem: str,
-    gff_path: Optional[str] = None,
+    gff_path: str | None = None,
     n_replicates: int = 10000,
     freq_threshold: float = 0.05,
-    seed: Optional[int] = None,
+    seed: int | None = None,
 ) -> None:
     '''
-    Simulate `n_replicates` neutral-mutation replicates and write the expected
-    number of parallel sites and parallel genes per strain pair to
-    <output_dir>/expected/parallel_sites_<stem>.csv and parallel_genes_<stem>.csv.
+    Simulate `n_replicates` neutral mutation replicates and write the expected
+    number of parallel sites and parallel genes per strain pair.
     '''
+
     seq, gff = load_reference(reference_path, gff_path=gff_path)
     alpha, outcome, load = estimate_mutation_model(df_clean, ancestor, freq_threshold)
     if len(load) < 2:
         raise RuntimeError(
-            'Need at least two strains with mutations to compute parallelism.'
+            'Need at least two strains with mutations to simulate parallel mutations.'
         )
     pointer, total_length = build_contig_pointers(seq)
     rng = random.Random(seed)
@@ -55,13 +54,12 @@ def run_parallel_simulation(
                 seq, pointer, total_length, alpha, outcome, load[st], rng
             )
 
-        # Index each strain's picks by (contig, pos) and by feature name for fast pair comparison.
         by_site: dict[str, set[tuple[str, int]]] = {}
         by_gene: dict[str, set[tuple[str, str]]] = {}
         for st, picks in replicate_picks.items():
             site_set: set[tuple[str, int]] = set()
             gene_set: set[tuple[str, str]] = set()
-            for contig, pos, _n1, _n2 in picks:
+            for contig, pos, n1, n2 in picks:
                 site_set.add((contig, pos))
                 features = gff.get(contig, {}).get(pos)
                 if features:

@@ -23,14 +23,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     subparsers = parser.add_subparsers(dest='command', required=True)
 
-    _add_process_parser(subparsers)
-    _add_simulate_dnds_parser(subparsers)
-    _add_simulate_parallel_parser(subparsers)
+    add_process_parser(subparsers)
+    add_simulate_dnds_parser(subparsers)
+    add_simulate_parallel_parser(subparsers)
 
     return parser
 
 
-def _add_process_parser(subparsers) -> None:
+def add_process_parser(subparsers) -> None:
     p = subparsers.add_parser(
         'process',
         help='Process breseq outputs (or a pre-built mutation table) and run analysis.',
@@ -40,8 +40,11 @@ def _add_process_parser(subparsers) -> None:
                    help='Output directory (default: output_files/)')
     p.add_argument('--threshold', nargs='+', type=float, default=[],
                    help='Mutation filtering based on frequency threshold (default: none)')
-    p.add_argument('--plot', nargs='+', choices=['bubble', 'spectrum'],
-                   help='Generate plots: bubble (summary bubble plot), spectrum (stacked mutation types)')
+    p.add_argument('--plot', nargs='+',
+                   choices=['bubble', 'spectrum', 'parallel', 'allele'],
+                   help='Generate plots: bubble (summary bubble plot), spectrum (stacked mutation types), '
+                        'parallel (gene-level parallel-mutation heatmap), '
+                        'allele (allele frequency distribution by group/day)')
 
     mode1 = p.add_argument_group('Mode 1: raw breseq output')
     mode1.add_argument('--samples-dir', metavar='DIR',
@@ -58,28 +61,28 @@ def _add_process_parser(subparsers) -> None:
                        help='Header row index for input file (default: 0)')
 
 
-def _add_simulate_dnds_parser(subparsers) -> None:
+def add_simulate_dnds_parser(subparsers) -> None:
     p = subparsers.add_parser(
         'simulate-dnds',
         help='Expected dN/dS under neutrality (null model).',
     )
-    _add_simulation_common_args(p, default_replicates=1000)
+    add_simulation_common_args(p, default_replicates=1000)
 
 
-def _add_simulate_parallel_parser(subparsers) -> None:
+def add_simulate_parallel_parser(subparsers) -> None:
     p = subparsers.add_parser(
         'simulate-parallel',
         help='Expected parallel-mutation counts under neutrality (null model).',
     )
-    _add_simulation_common_args(p, default_replicates=10000)
+    add_simulation_common_args(p, default_replicates=10000)
 
 
-def _add_simulation_common_args(p: argparse.ArgumentParser, default_replicates: int) -> None:
+def add_simulation_common_args(p: argparse.ArgumentParser, default_replicates: int) -> None:
     p.add_argument('--input', required=True,
                    help='Path to cleaned_data.csv produced by `mutanalysis process`.')
     p.add_argument('--reference', required=True,
                    help='Reference genome: .gbk/.gb/.gbff, .fasta/.fna/.fa, or .gff/.gff3.')
-    p.add_argument('--gff', default=None,
+    p.add_argument('--companion', default=None,
                    help='Companion GFF/FASTA file if the --reference does not include both sequence and annotations.')
     p.add_argument('--ancestor', required=True,
                    help='Ancestor column name (matches the argument given to `mutanalysis process`).')
@@ -88,10 +91,10 @@ def _add_simulation_common_args(p: argparse.ArgumentParser, default_replicates: 
     p.add_argument('--replicates', type=int, default=default_replicates,
                    help=f'Number of replicates (default: {default_replicates}).')
     p.add_argument('--seed', type=int, default=None,
-                   help='Random seed for reproducibility (default: nondeterministic).')
+                   help='Random seed for reproducibility (default: none).')
 
 
-def _run_process(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
+def run_process(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
     from modules.data_loader import load_and_filter
     from modules.statistics import calculate_basic_stats, frequency_filter
     from modules.analysis import mutation_analysis
@@ -137,6 +140,13 @@ def _run_process(args: argparse.Namespace, parser: argparse.ArgumentParser) -> N
 
     calculate_basic_stats(df_clean, ancestor, args.output, json_files=json_files)
 
+    for threshold in args.threshold:
+        df_filtered = frequency_filter(df_clean, threshold, ancestor)
+        filtered_file = os.path.join(args.output, f'frequency_{threshold}.csv')
+        df_filtered.to_csv(filtered_file, index=False)
+
+    mutation_analysis(df_clean, ancestor, args.output)
+
     if args.plot:
         summary_file = os.path.join(args.output, 'mutation_summary.csv')
         if 'bubble' in args.plot:
@@ -149,24 +159,34 @@ def _run_process(args: argparse.Namespace, parser: argparse.ArgumentParser) -> N
             plot_mutation_spectrum(summary_file,
                                    output_file=os.path.join(args.output, 'mutation_spectrum.png'),
                                    show=False)
+        if 'parallel' in args.plot:
+            from modules.plotting import plot_parallel_mutation_heatmap
+            gene_parallel_file = os.path.join(args.output, 'gene_parallel_mutations.csv')
+            if os.path.exists(gene_parallel_file):
+                plot_parallel_mutation_heatmap(
+                    gene_parallel_file,
+                    output_file=os.path.join(args.output, 'parallel_mutation_heatmap.png'),
+                    show=False,
+                )
+            else:
+                print(f'Warning: {gene_parallel_file} not found, cannot generate parallel heatmap.', file=sys.stderr)
+        if 'allele' in args.plot:
+            from modules.plotting import plot_allele_distribution
+            plot_allele_distribution(clean_file,
+                                     output_file=os.path.join(args.output, 'allele_distribution.png'),
+                                     show=False)
         print("Plots saved to output directory.")
 
-    for threshold in args.threshold:
-        df_filtered = frequency_filter(df_clean, threshold, ancestor)
-        filtered_file = os.path.join(args.output, f'frequency_{threshold}.csv')
-        df_filtered.to_csv(filtered_file, index=False)
-
-    mutation_analysis(df_clean, ancestor, args.output)
     print("Analysis complete.")
 
 
-def _run_simulation(args: argparse.Namespace, parser: argparse.ArgumentParser, kind: str) -> None:
+def run_simulation(args: argparse.Namespace, parser: argparse.ArgumentParser, kind: str) -> None:
     import pandas as pd
 
     if args.replicates < 1:
         parser.error('--replicates must be >= 1.')
     if args.replicates > 50_000:
-        print(f'[warn] --replicates={args.replicates}: runtime may be very long.', file=sys.stderr)
+        print(f'Warning: --replicates={args.replicates}: runtime may be very long.', file=sys.stderr)
 
     os.makedirs(args.output, exist_ok=True)
     df_clean = pd.read_csv(args.input)
@@ -182,7 +202,7 @@ def _run_simulation(args: argparse.Namespace, parser: argparse.ArgumentParser, k
             reference_path=args.reference,
             output_dir=args.output,
             file_stem=file_stem,
-            gff_path=args.gff,
+            gff_path=args.companion,
             n_replicates=args.replicates,
             seed=args.seed,
         )
@@ -194,31 +214,30 @@ def _run_simulation(args: argparse.Namespace, parser: argparse.ArgumentParser, k
             reference_path=args.reference,
             output_dir=args.output,
             file_stem=file_stem,
-            gff_path=args.gff,
+            gff_path=args.companion,
             n_replicates=args.replicates,
             seed=args.seed,
         )
     else:
-        parser.error(f'Unknown simulation kind: {kind}')
+        parser.error(f'Unknown simulation type: {kind}')
 
 
-_TOP_LEVEL_PASSTHROUGH = {'-h', '--help'}
+HELP_COMMANDS = {'-h', '--help'}
 
 
 def main():
     argv = sys.argv[1:]
-    # Back-compat shim: if the first token isn't a known subcommand and isn't a top-level
-    # help/version flag, assume the caller is using the old flat CLI and inject `process`.
-    if argv and argv[0] not in SUBCOMMANDS and argv[0] not in _TOP_LEVEL_PASSTHROUGH:
+    # Backwards compatibility
+    if argv and argv[0] not in SUBCOMMANDS and argv[0] not in HELP_COMMANDS:
         argv = ['process'] + argv
 
     parser = build_parser()
     args = parser.parse_args(argv)
 
     if args.command == 'process':
-        _run_process(args, parser)
+        run_process(args, parser)
     elif args.command in ('simulate-dnds', 'simulate-parallel'):
-        _run_simulation(args, parser, args.command)
+        run_simulation(args, parser, args.command)
 
 
 if __name__ == '__main__':

@@ -666,7 +666,9 @@ def plot_parallel_mutation_heatmap(
     parallel_csv,
     top_n=15,
     day_order=("d60", "d120", "d180"),
-    condition_order=("me", "pe")
+    condition_order=("me", "pe"),
+    output_file: Optional[str] = None,
+    show: bool = True,
 ):
     """
     Create a gene-level parallel mutation heatmap.
@@ -917,5 +919,11 @@ def plot_parallel_mutation_heatmap(
         bbox_to_anchor=(1.02, 0.56),
         frameon=False
     )
+
+    if output_file is not None:
+        fig.savefig(output_file, dpi=300, bbox_inches="tight")
+
+    if show:
+        plt.show()
 
     return fig
