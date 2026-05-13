@@ -152,6 +152,8 @@ mutanalysis process KZ_19 sample_breseq_output.xlsx \
 
 Runs a neutral-model simulation to estimate what fraction of mutations would be synonymous, nonsynonymous, nonsense, RNA genes, or intergenic purely by chance. Deviations from these expected values indicate selection.
 
+Outputs **expected** values only (under neutral model), written to `<output>/expected/`. Compare against the observed mutation proportions in `mutation_summary.csv` from a prior `process` run.
+
 **Requires `cleaned_data.csv` from a prior `process` run.**
 
 ```bash
@@ -192,6 +194,8 @@ mutanalysis simulate-dnds \
 ### `simulate-parallel` — Expected parallel mutations under neutrality
 
 Estimates how many sites and genes would mutate independently in multiple strains at random (neutral expectation).
+
+Outputs **expected** values only (under neutral model), written to `<output>/expected/`. Compare against the observed counts in `site_parallel_mutations.csv` / `gene_parallel_mutations.csv` from a prior `process` run.
 
 **Requires `cleaned_data.csv` from a prior `process` run.**
 
@@ -286,7 +290,7 @@ Generated when `--plot` is used:
 
 ### 6. Simulation Outputs
 
-Written to `<output_dir>/expected/` by `simulate-dnds` and `simulate-parallel`.
+Written to `<output_dir>/expected/` by `simulate-dnds` and `simulate-parallel`. These commands write only to the `expected/` subdirectory. The `--output` directory will not obtain new files. The matching **observed** values come from `process` (see §5 above).
 
 | File | Subcommand | Description |
 |------|------------|-------------|
@@ -349,6 +353,9 @@ mutation_analysis/
 
 **Issue:** No mutations in output
 - Check that the ancestor column name is correct. All rows matching the ancestor are excluded by design
+
+**Issue:** `simulate-parallel` / `simulate-dnds` ran with no errors but the output directory looks empty
+- Check the `expected/` subfolder inside `--output`. Both simulate commands only write there. Observed parallelism and dN/dS values are produced by `process`, not by the simulate commands.
 
 **Issue:** Mode 1 fails with `gdtools` not found
 - Ensure gdtools is installed and on your PATH, or pass the full path with `--gdtools /path/to/gdtools`
