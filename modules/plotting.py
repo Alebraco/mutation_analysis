@@ -499,7 +499,9 @@ def plot_time_trajectory(
 
     fig, ax = plt.subplots(figsize=(8, 6), dpi=200)
 
-    colors = {"ME": "#4CAF50", "PE": "#8E63CE"}
+    palette = plt.cm.tab10.colors
+    unique_groups = sorted(df["Group"].dropna().unique())
+    colors = {g: palette[i % len(palette)] for i, g in enumerate(unique_groups)}
 
     for group in df["Group"].unique():
         sub = df[df["Group"] == group]
@@ -597,25 +599,26 @@ def plot_allele_distribution(
     long_df["Group"] = long_df["Group"].astype(str).str.lower()
     long_df["Day"] = long_df["Day"].astype(str).str.upper()
 
-    # Keep only rows with parsed Group/Day
-    long_df = long_df[
-        long_df["Group"].isin(["me", "pe"]) &
-        long_df["Day"].str.match(r"D\d+", na=False)
-    ].copy()
+    # Keep only rows where Group was successfully parsed
+    parsed_df = long_df[long_df["Group"] != "none"].copy()
 
-    if long_df.empty:
-        raise ValueError("No valid allele frequency data found after parsing sample labels.")
+    if parsed_df.empty:
+        # Fall back: treat all samples as one group, no day breakdown
+        parsed_df = long_df.copy()
+        parsed_df["Group"] = "all"
+        parsed_df["Day"] = "all"
+
+    long_df = parsed_df
 
     days = _sort_day_labels(list(dict.fromkeys(long_df["Day"].dropna().astype(str))))
-    groups = ["me", "pe"]
+    groups = sorted(long_df["Group"].dropna().unique())
 
-    day_colors = {
-        "D60": "#5B9BD5",
-        "D120": "#ED7D31",
-        "D180": "#70AD47",
-    }
+    palette = plt.cm.tab10.colors
+    day_colors = {day: palette[i % len(palette)] for i, day in enumerate(days)}
 
-    fig, axes = plt.subplots(1, 2, figsize=figsize, dpi=dpi, sharey=True)
+    n = len(groups)
+    fig, axes = plt.subplots(1, n, figsize=figsize, dpi=dpi, sharey=True)
+    axes = [axes] if n == 1 else list(axes)
 
     for ax, group in zip(axes, groups):
         group_df = long_df[long_df["Group"] == group]
@@ -711,7 +714,7 @@ def plot_parallel_mutation_heatmap(
     # 2. Parse strain information
     # -----------------------------
     # Example: sm-d60-me1-p
-    pattern = re.compile(r".*-(d\d+)-(me|pe)(\d+)-?.*", re.IGNORECASE)
+    pattern = re.compile(r".*-(d\d+)-([A-Za-z]+)(\d+)-?.*", re.IGNORECASE)
 
     strain_info = []
     for col in strain_cols:
@@ -784,11 +787,15 @@ def plot_parallel_mutation_heatmap(
     # -----------------------------
     # 5. Annotation bars
     # -----------------------------
-    day_palette = {"d60": 0, "d120": 1, "d180": 2, "unknown": 3}
-    cond_palette = {"me": 0, "pe": 1, "unknown": 2}
+    day_palette = {d.lower(): i for i, d in enumerate(day_order)}
+    day_palette["unknown"] = len(day_order)
+    cond_palette = {c.lower(): i for i, c in enumerate(condition_order)}
+    cond_palette["unknown"] = len(condition_order)
 
-    day_colors = ["#9ecae1", "#6baed6", "#3182bd", "#d9d9d9"]
-    cond_colors = ["#fdae6b", "#74c476", "#d9d9d9"]
+    _day_base = plt.cm.Blues(np.linspace(0.3, 0.8, max(len(day_order), 1)))
+    day_colors = [to_hex(c) for c in _day_base] + ["#d9d9d9"]
+    _cond_base = plt.cm.Set2.colors
+    cond_colors = [to_hex(_cond_base[i % len(_cond_base)]) for i in range(len(condition_order))] + ["#d9d9d9"]
     binary_colors = ["#f2f2f2", "#08306b"]
 
     day_cmap = ListedColormap(day_colors)
@@ -805,8 +812,8 @@ def plot_parallel_mutation_heatmap(
         for c in strain_info_df["condition"]
     ]).reshape(1, -1)
 
-    ax_day.imshow(day_vals, aspect="auto", cmap=day_cmap, interpolation="none",vmin=0, vmax=3)
-    ax_cond.imshow(cond_vals, aspect="auto", cmap=cond_cmap, interpolation="none",vmin=0, vmax=2)
+    ax_day.imshow(day_vals, aspect="auto", cmap=day_cmap, interpolation="none", vmin=0, vmax=len(day_colors) - 1)
+    ax_cond.imshow(cond_vals, aspect="auto", cmap=cond_cmap, interpolation="none", vmin=0, vmax=len(cond_colors) - 1)
 
     for a, label in zip([ax_day, ax_cond], ["Day", "Condition"]):
         a.set_xticks([])
