@@ -37,10 +37,13 @@ conda create -n mutation_analysis -c bioconda pandas numpy matplotlib openpyxl b
 conda activate mutation_analysis
 
 # Optional: Install as pip package to use `mutanalysis` instead of `python main.py`
-pip install .
+# Use -e (editable) so the command always runs your current code, not a frozen copy.
+pip install -e .
 ```
 
-After `pip install .`, the pipeline can be run as `mutanalysis` instead of `python main.py`.
+After `pip install -e .`, the pipeline can be run as `mutanalysis` instead of `python main.py`.
+Install into the **same** conda env you run from (`conda activate mutation_analysis` first),
+otherwise the `mutanalysis` command won't be on your `PATH` in that env.
 
 ## Usage
 
@@ -66,7 +69,7 @@ Use this mode if you have the original breseq output folders and a reference gen
 
 **Expected directory structure:**
 
-```
+```text
 samples_dir/
 ├── sample_A/
 │   └── data/
@@ -88,10 +91,11 @@ mutanalysis process <ancestor> \
   [--gdtools <path/to/gdtools>] \
   [--output <output_dir>] \
   [--threshold 0.25 0.5 0.75 1.0] \
-  [--plot bubble spectrum parallel allele]
+  [--plot bubble spectrum parallel allele trajectory]
 ```
 
 **Example:**
+
 ```bash
 mutanalysis process KZ_19 \
   --samples-dir samples \
@@ -100,8 +104,8 @@ mutanalysis process KZ_19 \
   --threshold 0.25 0.5 1.0 \
   --plot spectrum parallel
 ```
-> **Note:** The `process` keyword can be omitted for backwards compatibility:`mutanalysis KZ_19 --samples-dir ...` still works.
 
+> **Note:** The `process` keyword can be omitted for backwards compatibility:`mutanalysis KZ_19 --samples-dir ...` still works.
 > **Note:** A single or multiple frequency threshold values may be used (e.g. `--threshold 0.75`, `--threshold 0.5 0.8`)
 
 ---
@@ -117,10 +121,11 @@ mutanalysis process <ancestor> <input_file> \
   [--header-row <int>] \
   [--output <output_dir>] \
   [--threshold 0.25 0.5 0.75 1.0] \
-  [--plot bubble spectrum parallel allele]
+  [--plot bubble spectrum parallel allele trajectory]
 ```
 
 **Example:**
+
 ```bash
 mutanalysis process KZ_19 sample_breseq_output.xlsx \
   --output results \
@@ -133,7 +138,7 @@ mutanalysis process KZ_19 sample_breseq_output.xlsx \
 #### `process` arguments
 
 | Argument | Mode | Required | Default | Description |
-|----------|------|----------|---------|-------------|
+| --- | --- | --- | --- | --- |
 | `ancestor` | Both | Yes | — | Ancestor strain column name (e.g., `KZ_19`) |
 | `--output` | Both | No | `output_files/` | Output directory for results |
 | `--threshold` | Both | No | — | Space-separated frequency thresholds for filtering |
@@ -142,7 +147,7 @@ mutanalysis process KZ_19 sample_breseq_output.xlsx \
 | `--gdtools` | 1 | No | `gdtools` | Path to gdtools executable (not needed if using **conda**) |
 | `input_file` | 2 | Yes* | — | Path to pre-processed mutation table |
 | `--header-row` | 2 | No | `0` | Header row index in the input file |
-| `--plot` | Both | No | — | Plot types: `bubble`, `spectrum`, `parallel`, `allele` |
+| `--plot` | Both | No | — | Plot types: `bubble`, `spectrum`, `parallel`, `allele`, `trajectory` |
 
 \* Required within that mode.
 
@@ -168,6 +173,7 @@ mutanalysis simulate-dnds \
 ```
 
 **Example:**
+
 ```bash
 mutanalysis simulate-dnds \
   --input results/cleaned_data.csv \
@@ -180,7 +186,7 @@ mutanalysis simulate-dnds \
 #### `simulate-dnds` arguments
 
 | Argument | Required | Default | Description |
-|----------|----------|---------|-------------|
+| --- | --- | --- | --- |
 | `--input` | Yes | — | Path to `cleaned_data.csv` from `process` |
 | `--reference` | Yes | — | Reference genome (`.gbk`, `.gbff`, `.fasta`, `.fna`, `.fa`, `.gff`, `.gff3`) |
 | `--ancestor` | Yes | — | Ancestor column name (must match the `process` run) |
@@ -211,6 +217,7 @@ mutanalysis simulate-parallel \
 ```
 
 **Example:**
+
 ```bash
 mutanalysis simulate-parallel \
   --input results/cleaned_data.csv \
@@ -224,7 +231,7 @@ mutanalysis simulate-parallel \
 #### `simulate-parallel` arguments
 
 | Argument | Required | Default | Description |
-|----------|----------|---------|-------------|
+| --- | --- | --- | --- |
 | `--input` | Yes | — | Path to `cleaned_data.csv` from `process` |
 | `--reference` | Yes | — | Reference genome (`.gbk`, `.gbff`, `.fasta`, `.fna`, `.fa`, `.gff`, `.gff3`) |
 | `--ancestor` | Yes | — | Ancestor column name (must match the `process` run) |
@@ -242,7 +249,7 @@ All outputs are written to the directory specified by `--output` (default: `outp
 ### 1. Cleaned Data
 
 | File | Description |
-|------|-------------|
+| ---- | ----------- |
 | `cleaned_data.csv` | Filtered dataset with ancestor mutations and low-coverage rows removed |
 | `low_coverage_rows.csv` | Rows flagged with low coverage (`?` values), if any exist |
 
@@ -251,13 +258,13 @@ All outputs are written to the directory specified by `--output` (default: `outp
 Generated for each threshold passed to `--threshold`:
 
 | File | Description |
-|------|-------------|
+| ---- | ----------- |
 | `frequency_(threshold).csv` | Mutations that meet the frequency threshold in at least one strain |
 
 ### 3. Statistical Summary
 
 | File | Description |
-|------|-------------|
+| ---- | ----------- |
 | `mutation_summary.csv` | Per-strain statistics: mutation type proportions, total count, average frequency, and average coverage* |
 
 \* Average Coverage only available in Mode 1.
@@ -265,7 +272,7 @@ Generated for each threshold passed to `--threshold`:
 **Example output:**
 
 | Line | Nonsynonymous | Synonymous | Intergenic | NonSense | Noncoding | Pseudogene | Total Mutations | Average Frequency | Average Coverage |
-|------|---------------|------------|------------|----------|-----------|------------|-----------------|-------------------|-----------------|
+| ---- | ------------- | ---------- | ---------- | -------- | --------- | ---------- | ------------ | ----------------- | --------------- |
 | Strain_A | 0.65 | 0.20 | 0.10 | 0.03 | 0.02 | 0.00 | 120 | 0.875 | 142.3 |
 | Strain_B | 0.58 | 0.25 | 0.12 | 0.04 | 0.01 | 0.00 | 98 | 0.820 | 138.7 |
 
@@ -274,17 +281,18 @@ Generated for each threshold passed to `--threshold`:
 Generated when `--plot` is used:
 
 | File | Description |
-|------|-------------|
+| ---- | ----------- |
 | `bubble_plot.png` | Bubble plot of mutation frequency vs. nonsynonymous proportion (sized by total mutations) |
 | `mutation_spectrum.png` | Stacked bar chart of mutation type proportions per group/timepoint |
 | `parallel_mutation_heatmap.png` | Heatmap of genes mutated in parallel across strains |
 | `allele_distribution.png` | Allele frequency distribution by group/timepoint |
+| `time_trajectory.png` | Total mutations over time per group (requires `d<N>-<condition><replicate>` naming) |
 
 #### Parallel-mutation heatmap: strain naming
 
 The heatmap groups strains by **day** and **condition**, parsed from each strain name. To get the colored Day/Condition bars and the grouping, use the following naming scheme:
 
-```
+```text
 [prefix-]d<day>-<condition><replicate>[-suffix]
 ```
 
@@ -295,7 +303,7 @@ The heatmap groups strains by **day** and **condition**, parsed from each strain
 
 Examples of valid names: `d180-me1`, `SM-D120-PE2-P`, `kz19-d60-mpm3`.
 
-The plot orders strains by day then condition, and lists each detected day/condition in the legend. 
+The plot orders strains by day then condition, and lists each detected day/condition in the legend.
 
 Strain names that do not match this pattern still appear in the heatmap, but they will not get the Day/Condition grouping or boundary lines.
 
@@ -312,7 +320,7 @@ Strain names that do not match this pattern still appear in the heatmap, but the
 Written to `<output_dir>/expected/` by `simulate-dnds` and `simulate-parallel`. These commands write only to the `expected/` subdirectory. The `--output` directory will not obtain new files. The matching **observed** values come from `process` (see §5 above).
 
 | File | Subcommand | Description |
-|------|------------|-------------|
+| ---- | ---------- | ----------- |
 | `expdNdS_<stem>.csv` | `simulate-dnds` | Expected mutation category percentages per strain |
 | `avg_expdNdS_<stem>.csv` | `simulate-dnds` | Average expected percentages across all strains |
 | `parallel_sites_<stem>.csv` | `simulate-parallel` | Expected number of parallel sites per strain pair |
@@ -327,7 +335,7 @@ Written to `<output_dir>/expected/` by `simulate-dnds` and `simulate-parallel`. 
 Mutations are classified from the `annotation` column in the following priority order:
 
 | Type | Criteria |
-|------|----------|
+| ---- | -------- |
 | **Nonsense** | Annotation contains a stop codon (`*`) |
 | **Noncoding** | Annotation contains "noncoding" |
 | **Intergenic** | Annotation contains "intergenic" |
@@ -341,7 +349,7 @@ Mutations are classified from the `annotation` column in the following priority 
 
 ## Project Structure
 
-```
+```text
 mutation_analysis/
 ├── main.py              # Orchestrating script
 ├── pyproject.toml       # Package config
@@ -367,15 +375,19 @@ mutation_analysis/
 ## Troubleshooting
 
 **Issue:** `AttributeError` or `KeyError` for ancestor column
+
 - The ancestor name must match the column header exactly (case-insensitive, spaces treated as underscores)
 - Use `--header-row` if your file has extra rows before the column headers
 
 **Issue:** No mutations in output
+
 - Check that the ancestor column name is correct. All rows matching the ancestor are excluded by design
 
 **Issue:** `simulate-parallel` / `simulate-dnds` ran with no errors but the output directory looks empty
+
 - Check the `expected/` subfolder inside `--output`. Both simulate commands only write there. Observed parallelism and dN/dS values are produced by `process`, not by the simulate commands.
 
 **Issue:** Mode 1 fails with `gdtools` not found
+
 - Ensure gdtools is installed and on your PATH, or pass the full path with `--gdtools /path/to/gdtools`
 - The `--reference` argument must point to the genome file breseq was originally run against (`.gff`, `.fasta`, or `.gbk`), not a sample directory
