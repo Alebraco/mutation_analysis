@@ -41,10 +41,11 @@ def add_process_parser(subparsers) -> None:
     p.add_argument('--threshold', nargs='+', type=float, default=[],
                    help='Mutation filtering based on frequency threshold (default: none)')
     p.add_argument('--plot', nargs='+',
-                   choices=['bubble', 'spectrum', 'parallel', 'allele'],
+                   choices=['bubble', 'spectrum', 'parallel', 'allele', 'trajectory'],
                    help='Generate plots: bubble (summary bubble plot), spectrum (stacked mutation types), '
                         'parallel (gene-level parallel-mutation heatmap), '
-                        'allele (allele frequency distribution by group/day)')
+                        'allele (allele frequency distribution by group/day), '
+                        'trajectory (total mutations over time per group)')
 
     mode1 = p.add_argument_group('Mode 1: raw breseq output')
     mode1.add_argument('--samples-dir', metavar='DIR',
@@ -175,6 +176,11 @@ def run_process(args: argparse.Namespace, parser: argparse.ArgumentParser) -> No
             plot_allele_distribution(clean_file,
                                      output_file=os.path.join(args.output, 'allele_distribution.png'),
                                      show=False)
+        if 'trajectory' in args.plot:
+            from modules.plotting import plot_time_trajectory
+            plot_time_trajectory(summary_file,
+                                 output_file=os.path.join(args.output, 'time_trajectory.png'),
+                                 show=False)
         print("Plots saved to output directory.")
 
     print("Analysis complete.")
