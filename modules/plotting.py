@@ -713,8 +713,8 @@ def plot_parallel_mutation_heatmap(
     # -----------------------------
     # 2. Parse strain information
     # -----------------------------
-    # Example: sm-d60-me1-p
-    pattern = re.compile(r".*-(d\d+)-([A-Za-z]+)(\d+)-?.*", re.IGNORECASE)
+    # Accepts e.g. SM-D120-ME1-P, kz19-d60-me1, or d180-me1 (no prefix, no suffix).
+    pattern = re.compile(r"^(?:.*?-)?(d\d+)-([A-Za-z]+)(\d+)(?:-.*)?$", re.IGNORECASE)
 
     strain_info = []
     for col in strain_cols:
@@ -739,7 +739,15 @@ def plot_parallel_mutation_heatmap(
     strain_info_df["day"] = strain_info_df["day"].astype(str).str.lower()
     strain_info_df["condition"] = strain_info_df["condition"].astype(str).str.lower()
 
-    ##print(strain_info_df[["strain", "day", "condition", "replicate"]].head(15))
+    has_day = bool((strain_info_df["day"] != "unknown").any())
+    has_condition = bool((strain_info_df["condition"] != "unknown").any())
+
+    # Auto-discover conditions present in the data but not listed in condition_order
+    discovered_conditions = [
+        c for c in dict.fromkeys(strain_info_df["condition"])
+        if c != "unknown" and c.lower() not in {x.lower() for x in condition_order}
+    ]
+    condition_order = tuple(condition_order) + tuple(discovered_conditions)
 
     # Ranking for sorting
     day_rank = {d.lower(): i for i, d in enumerate(day_order)}
@@ -774,15 +782,24 @@ def plot_parallel_mutation_heatmap(
     fig_height = max(6, n_rows * 0.45 + 1.5)
 
     fig = plt.figure(figsize=(fig_width, fig_height))
-    gs = fig.add_gridspec(
-        3, 1,
-        height_ratios=[0.3, 0.3, 4],
-        hspace=0.05
-    )
 
-    ax_day = fig.add_subplot(gs[0])
-    ax_cond = fig.add_subplot(gs[1])
-    ax = fig.add_subplot(gs[2])
+    row_specs = []
+    if has_day:
+        row_specs.append(("day", 0.3))
+    if has_condition:
+        row_specs.append(("cond", 0.3))
+    row_specs.append(("main", 4))
+
+    gs = fig.add_gridspec(
+        len(row_specs), 1,
+        height_ratios=[h for _, h in row_specs],
+        hspace=0.05,
+    )
+    axes = {name: fig.add_subplot(gs[i]) for i, (name, _) in enumerate(row_specs)}
+    ax_day = axes.get("day")
+    ax_cond = axes.get("cond")
+    ax = axes["main"]
+    top_ax = axes[row_specs[0][0]]
 
     # -----------------------------
     # 5. Annotation bars
@@ -802,20 +819,26 @@ def plot_parallel_mutation_heatmap(
     cond_cmap = ListedColormap(cond_colors)
     binary_cmap = ListedColormap(binary_colors)
 
-    day_vals = np.array([
-        day_palette.get(d, day_palette["unknown"])
-        for d in strain_info_df["day"]
-    ]).reshape(1, -1)
+    annotation_axes = []
+    if ax_day is not None:
+        day_vals = np.array([
+            day_palette.get(d, day_palette["unknown"])
+            for d in strain_info_df["day"]
+        ]).reshape(1, -1)
+        ax_day.imshow(day_vals, aspect="auto", cmap=day_cmap, interpolation="none",
+                      vmin=0, vmax=len(day_colors) - 1)
+        annotation_axes.append((ax_day, "Day"))
 
-    cond_vals = np.array([
-        cond_palette.get(c, cond_palette["unknown"])
-        for c in strain_info_df["condition"]
-    ]).reshape(1, -1)
+    if ax_cond is not None:
+        cond_vals = np.array([
+            cond_palette.get(c, cond_palette["unknown"])
+            for c in strain_info_df["condition"]
+        ]).reshape(1, -1)
+        ax_cond.imshow(cond_vals, aspect="auto", cmap=cond_cmap, interpolation="none",
+                       vmin=0, vmax=len(cond_colors) - 1)
+        annotation_axes.append((ax_cond, "Condition"))
 
-    ax_day.imshow(day_vals, aspect="auto", cmap=day_cmap, interpolation="none", vmin=0, vmax=len(day_colors) - 1)
-    ax_cond.imshow(cond_vals, aspect="auto", cmap=cond_cmap, interpolation="none", vmin=0, vmax=len(cond_colors) - 1)
-
-    for a, label in zip([ax_day, ax_cond], ["Day", "Condition"]):
+    for a, label in annotation_axes:
         a.set_xticks([])
         a.set_yticks([0])
         a.set_yticklabels([label], fontsize=10)
@@ -835,7 +858,10 @@ def plot_parallel_mutation_heatmap(
 
     ax.set_xlabel("Strains", fontsize=11)
     ax.set_ylabel("Genes", fontsize=11)
-    ax.set_title(f"Parallel Mutation Heatmap (Top {len(heatmap_df.index)} Genes)", fontsize=13)
+    top_ax.set_title(
+        f"Parallel Mutation Heatmap (Top {len(heatmap_df.index)} Genes)",
+        fontsize=13, pad=10,
+    )
 
     # Cell gridlines
     ax.set_xticks(np.arange(-0.5, n_cols, 1), minor=True)
@@ -844,88 +870,71 @@ def plot_parallel_mutation_heatmap(
     ax.tick_params(which="minor", bottom=False, left=False)
 
     # -----------------------------
-    # 7. Draw ME/PE boundaries WITHIN each day
+    # 7. Boundary lines
     # -----------------------------
-    for day in day_order:
-        day_subset = strain_info_df[strain_info_df["day"] == day]
-        if day_subset.empty:
-            continue
+    boundary_axes = [ax] + [a for a, _ in annotation_axes]
 
-        me_subset = day_subset[day_subset["condition"] == "me"]
-        pe_subset = day_subset[day_subset["condition"] == "pe"]
+    # Dashed red boundaries between adjacent conditions within each day
+    if has_day and has_condition:
+        for day in dict.fromkeys(strain_info_df["day"]):
+            day_subset = strain_info_df[strain_info_df["day"] == day]
+            positions = day_subset.index.to_list()
+            conds = day_subset["condition"].to_list()
+            for i in range(1, len(positions)):
+                if conds[i] != conds[i - 1]:
+                    boundary_x = positions[i] - 0.5
+                    for axis in boundary_axes:
+                        axis.axvline(x=boundary_x, color="red", linestyle="--", linewidth=1)
 
-        if not me_subset.empty and not pe_subset.empty:
-            boundary_x = me_subset.index.max() + 0.5
-
-            for axis in [ax, ax_day, ax_cond]:
-                axis.axvline(
-                    x=boundary_x,
-                    color="red",
-                    linestyle="--",
-                    linewidth=1
-                )
-
-    for i in range(len(day_order) - 1):
-        current_day = day_order[i]
-
-        day_subset = strain_info_df[strain_info_df["day"] == current_day]
-        if day_subset.empty:
-            continue
-
-        boundary_x = day_subset.index.max() + 0.5
-
-        for axis in [ax, ax_day, ax_cond]:
-            axis.axvline(
-                x=boundary_x,
-                color="black",
-                linestyle="-",
-                linewidth=2
-            )
+    # Solid black boundaries between days
+    if has_day:
+        present_days = list(dict.fromkeys(strain_info_df["day"]))
+        for day in present_days[:-1]:
+            day_subset = strain_info_df[strain_info_df["day"] == day]
+            if day_subset.empty:
+                continue
+            boundary_x = day_subset.index.max() + 0.5
+            for axis in boundary_axes:
+                axis.axvline(x=boundary_x, color="black", linestyle="-", linewidth=2)
     # -----------------------------
     # 8. Legends
     # -----------------------------
-    day_handles = []
-    for d in day_order:
-        if d in strain_info_df["day"].values:
-            idx = day_palette[d]
-            day_handles.append(Patch(facecolor=day_colors[idx], edgecolor="none", label=d))
+    legend_specs = []
 
-    cond_handles = []
-    for c in condition_order:
-        if c in strain_info_df["condition"].values:
-            idx = cond_palette[c]
-            cond_handles.append(Patch(facecolor=cond_colors[idx], edgecolor="none", label=c.upper()))
+    if has_day:
+        day_handles = [
+            Patch(facecolor=day_colors[day_palette[d]], edgecolor="none", label=d)
+            for d in day_order if d in strain_info_df["day"].values
+        ]
+        if day_handles:
+            legend_specs.append(("Day", day_handles))
+
+    if has_condition:
+        cond_handles = [
+            Patch(facecolor=cond_colors[cond_palette[c]], edgecolor="none", label=c.upper())
+            for c in condition_order if c in strain_info_df["condition"].values
+        ]
+        if cond_handles:
+            legend_specs.append(("Condition", cond_handles))
 
     mutation_handles = [
         Patch(facecolor=binary_colors[0], edgecolor="black", label="0"),
-        Patch(facecolor=binary_colors[1], edgecolor="black", label="1")
+        Patch(facecolor=binary_colors[1], edgecolor="black", label="1"),
     ]
+    legend_specs.append(("Mutation", mutation_handles))
 
-    legend1 = ax.legend(
-        handles=day_handles,
-        title="Day",
-        loc="upper left",
-        bbox_to_anchor=(1.02, 1.00),
-        frameon=False
-    )
-    ax.add_artist(legend1)
-
-    legend2 = ax.legend(
-        handles=cond_handles,
-        title="Condition",
-        loc="upper left",
-        bbox_to_anchor=(1.02, 0.76),
-        frameon=False
-    )
-    ax.add_artist(legend2)
-
-    ax.legend(
-        handles=mutation_handles,
-        title="Mutation",
-        loc="upper left",
-        bbox_to_anchor=(1.02, 0.56),
-        frameon=False
-    )
+    y_anchor = 1.00
+    for i, (title, handles) in enumerate(legend_specs):
+        leg = ax.legend(
+            handles=handles,
+            title=title,
+            loc="upper left",
+            bbox_to_anchor=(1.02, y_anchor),
+            frameon=False,
+        )
+        if i < len(legend_specs) - 1:
+            ax.add_artist(leg)
+        y_anchor -= 0.05 * (len(handles) + 1) + 0.05
 
     if output_file is not None:
         fig.savefig(output_file, dpi=300, bbox_inches="tight")

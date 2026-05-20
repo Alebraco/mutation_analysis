@@ -280,6 +280,25 @@ Generated when `--plot` is used:
 | `parallel_mutation_heatmap.png` | Heatmap of genes mutated in parallel across strains |
 | `allele_distribution.png` | Allele frequency distribution by group/timepoint |
 
+#### Parallel-mutation heatmap: strain naming
+
+The heatmap groups strains by **day** and **condition**, parsed from each strain name. To get the colored Day/Condition bars and the grouping, use the following naming scheme:
+
+```
+[prefix-]d<day>-<condition><replicate>[-suffix]
+```
+
+- `d<day>` — timepoint, e.g. `d60`, `d120`, `d180`
+- `<condition>` — letters only, e.g. `me`, `pe`, `mpm`, `pmp` (any condition works)
+- `<replicate>` — a number, e.g. `1`, `2`, `3`
+- the prefix and suffix are **optional**
+
+Examples of valid names: `d180-me1`, `SM-D120-PE2-P`, `kz19-d60-mpm3`.
+
+The plot orders strains by day then condition, and lists each detected day/condition in the legend. 
+
+Strain names that do not match this pattern still appear in the heatmap, but they will not get the Day/Condition grouping or boundary lines.
+
 ### 5. Mutation Analysis
 
 | File | Description |
