@@ -911,6 +911,8 @@ def plot_parallel_mutation_heatmap(
     # 7. Boundary lines
     # -----------------------------
     boundary_axes = [ax] + [a for a, _ in annotation_axes]
+    # Condition boundaries must not split the Day bar (a single day stays solid).
+    cond_boundary_axes = [ax] + [a for a, label in annotation_axes if label != "Day"]
 
     # Dashed red boundaries between adjacent conditions within each day
     if has_day and has_condition:
@@ -921,7 +923,7 @@ def plot_parallel_mutation_heatmap(
             for i in range(1, len(positions)):
                 if conds[i] != conds[i - 1]:
                     boundary_x = positions[i] - 0.5
-                    for axis in boundary_axes:
+                    for axis in cond_boundary_axes:
                         axis.axvline(x=boundary_x, color="red", linestyle="--", linewidth=1)
 
     # Solid black boundaries between days
