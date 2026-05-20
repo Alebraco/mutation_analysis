@@ -488,12 +488,33 @@ def plot_time_trajectory(
 ):
 
 
-    df = pd.read_excel(input_file)
+    input_path = Path(input_file)
+    suffix = input_path.suffix.lower()
+    if suffix == ".csv":
+        df = pd.read_csv(input_path)
+    elif suffix == ".tsv":
+        df = pd.read_csv(input_path, sep="\t")
+    elif suffix in {".xlsx", ".xls"}:
+        df = pd.read_excel(input_path)
+    else:
+        raise ValueError(f"Unsupported input file format: {suffix}")
 
-    # parse
     parsed = df["Line"].apply(lambda x: pd.Series(_parse_line_label(x)))
     parsed.columns = ["Day", "Group", "Replicate"]
     df[["Day", "Group", "Replicate"]] = parsed
+
+    group_parsed = not df["Group"].isna().all()
+    if not group_parsed:
+        df["Group"] = "All"
+
+    if df["Day"].isna().all():
+        sample_values = df["Line"].dropna().head(3).tolist()
+        raise ValueError(
+            "Could not parse day information from the 'Line' column. "
+            "Each label must contain a timepoint in the form 'd<number>' (e.g. 'd60')"
+            "followed by optional condition and replicate (e.g. 'd120-me1', 'sm-d120-me1-p')."
+            f"The labels found in 'Line' were: {sample_values}"
+        )
 
     df["Day_num"] = df["Day"].str.extract(r"(\d+)").astype(float)
 
@@ -506,17 +527,15 @@ def plot_time_trajectory(
     for group in df["Group"].unique():
         sub = df[df["Group"] == group]
 
-        # scatter（所有replicate）
         ax.scatter(
             sub["Day_num"],
             sub[y_col],
             color=colors[group],
             alpha=0.5,
             s=40,
-            label=f"{group} (replicates)"
+            label=f"{group} (replicates)" if group_parsed else None,
         )
 
-        #  mean line
         mean_df = sub.groupby("Day_num")[y_col].mean().reset_index()
 
         ax.plot(
@@ -525,7 +544,7 @@ def plot_time_trajectory(
             color=colors[group],
             linewidth=2.5,
             marker="o",
-            label=f"{group} (mean)"
+            label=f"{group} (mean)" if group_parsed else None,
         )
 
     ax.set_xlabel("Time (Day)")
@@ -536,7 +555,8 @@ def plot_time_trajectory(
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
 
-    ax.legend(frameon=False)
+    if group_parsed:
+        ax.legend(frameon=False)
 
     plt.tight_layout()
 
@@ -811,8 +831,26 @@ def plot_parallel_mutation_heatmap(
 
     _day_base = plt.cm.Blues(np.linspace(0.3, 0.8, max(len(day_order), 1)))
     day_colors = [to_hex(c) for c in _day_base] + ["#d9d9d9"]
-    _cond_base = plt.cm.Set2.colors
-    cond_colors = [to_hex(_cond_base[i % len(_cond_base)]) for i in range(len(condition_order))] + ["#d9d9d9"]
+    # Pinned colors for known conditions; any new condition falls back to the
+    # remaining Set2 colors so its color stays stable regardless of column order.
+    fixed_cond_colors = {
+        "me": "#66c2a5",
+        "pe": "#fc8d62",
+        "mpm": "#8da0cb",
+        "pmp": "#e78ac3",
+    }
+    _pinned = set(fixed_cond_colors.values())
+    _auto_base = [to_hex(c) for c in plt.cm.Set2.colors if to_hex(c) not in _pinned]
+    cond_colors = []
+    _auto_i = 0
+    for c in condition_order:
+        key = c.lower()
+        if key in fixed_cond_colors:
+            cond_colors.append(fixed_cond_colors[key])
+        else:
+            cond_colors.append(_auto_base[_auto_i % len(_auto_base)])
+            _auto_i += 1
+    cond_colors.append("#d9d9d9")  # unknown
     binary_colors = ["#f2f2f2", "#08306b"]
 
     day_cmap = ListedColormap(day_colors)
