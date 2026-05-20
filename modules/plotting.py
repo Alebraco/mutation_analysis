@@ -533,7 +533,7 @@ def plot_time_trajectory(
             color=colors[group],
             alpha=0.5,
             s=40,
-            label=f"{group} (replicates)" if group_parsed else None,
+            label=group if group_parsed else None,
         )
 
         mean_df = sub.groupby("Day_num")[y_col].mean().reset_index()
@@ -544,7 +544,7 @@ def plot_time_trajectory(
             color=colors[group],
             linewidth=2.5,
             marker="o",
-            label=f"{group} (mean)" if group_parsed else None,
+            label=None,
         )
 
     ax.set_xlabel("Time (Day)")
@@ -556,7 +556,10 @@ def plot_time_trajectory(
     ax.spines["right"].set_visible(False)
 
     if group_parsed:
-        ax.legend(frameon=False)
+        handles, labels = ax.get_legend_handles_labels()
+        handles.append(Line2D([0], [0], color="#666666", linewidth=2.5, marker="o", label="mean"))
+        labels.append("mean")
+        ax.legend(handles, labels, frameon=False)
 
     plt.tight_layout()
 
