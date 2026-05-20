@@ -149,16 +149,18 @@ def run_process(args: argparse.Namespace, parser: argparse.ArgumentParser) -> No
     mutation_analysis(df_clean, ancestor, args.output)
 
     if args.plot:
+        plots_dir = os.path.join(args.output, 'plots')
+        os.makedirs(plots_dir, exist_ok=True)
         summary_file = os.path.join(args.output, 'mutation_summary.csv')
         if 'bubble' in args.plot:
             from modules.plotting import plot_mutation_bubble
             plot_mutation_bubble(summary_file,
-                                 output_file=os.path.join(args.output, 'bubble_plot.png'),
+                                 output_file=os.path.join(plots_dir, 'bubble_plot.png'),
                                  show=False)
         if 'spectrum' in args.plot:
             from modules.plotting import plot_mutation_spectrum
             plot_mutation_spectrum(summary_file,
-                                   output_file=os.path.join(args.output, 'mutation_spectrum.png'),
+                                   output_file=os.path.join(plots_dir, 'mutation_spectrum.png'),
                                    show=False)
         if 'parallel' in args.plot:
             from modules.plotting import plot_parallel_mutation_heatmap
@@ -166,7 +168,7 @@ def run_process(args: argparse.Namespace, parser: argparse.ArgumentParser) -> No
             if os.path.exists(gene_parallel_file):
                 plot_parallel_mutation_heatmap(
                     gene_parallel_file,
-                    output_file=os.path.join(args.output, 'parallel_mutation_heatmap.png'),
+                    output_file=os.path.join(plots_dir, 'parallel_mutation_heatmap.png'),
                     show=False,
                 )
             else:
@@ -174,14 +176,14 @@ def run_process(args: argparse.Namespace, parser: argparse.ArgumentParser) -> No
         if 'allele' in args.plot:
             from modules.plotting import plot_allele_distribution
             plot_allele_distribution(clean_file,
-                                     output_file=os.path.join(args.output, 'allele_distribution.png'),
+                                     output_file=os.path.join(plots_dir, 'allele_distribution.png'),
                                      show=False)
         if 'trajectory' in args.plot:
             from modules.plotting import plot_time_trajectory
             plot_time_trajectory(summary_file,
-                                 output_file=os.path.join(args.output, 'time_trajectory.png'),
+                                 output_file=os.path.join(plots_dir, 'time_trajectory.png'),
                                  show=False)
-        print("Plots saved to output directory.")
+        print(f"Plots saved to {plots_dir}")
 
     print("Analysis complete.")
 
