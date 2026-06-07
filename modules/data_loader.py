@@ -85,7 +85,7 @@ def load_and_filter(input_file, ancestor, header_row=0):
 
     print('Cleaning nonstandard characters.')
     for col in df_clean.columns:
-        df_clean[col] = df_clean[col].apply(clean_text)
+        df_clean[col] = df_clean[col].apply(clean_text) if col != 'annotation' else df_clean[col]
 
     print('Classifying mutations.')
     df_clean['mutation_type'] = df_clean['annotation'].apply(classify_mutation)
