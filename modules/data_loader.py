@@ -87,9 +87,12 @@ def load_and_filter(input_file, ancestor, header_row=0):
     for col in df_clean.columns:
         df_clean[col] = df_clean[col].apply(clean_text) if col != 'mutation' else df_clean[col]
 
-    print('Classifying mutations.')
-    df_clean['mutation_type'] = df_clean['annotation'].apply(classify_mutation)
-    
+    if 'mutation_type' in df_clean.columns:
+        print('Using mutation_type already classified by gdtools (Mode 1).')
+    else:
+        print('Classifying mutations.')
+        df_clean['mutation_type'] = df_clean['annotation'].apply(classify_mutation)
+
     unknowns = df_clean[df_clean['mutation_type'] == 'unknown']
     if not unknowns.empty:
         print(f'{len(unknowns)} mutations classified as unknown.')

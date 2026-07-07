@@ -46,4 +46,25 @@ def classify_mutation(annotation):
     else:
         print(f'Warning: Unrecognized annotation format: {annotation}')
         return 'unknown'
-    
+
+
+def classify_from_gdtools_json(snp_type, gene_position):
+    '''
+    Classify mutation type from gdtools JSON output fields (Mode 1 only).
+    '''
+    valid_types = {'nonsense', 'noncoding', 'intergenic', 'pseudogene', 'synonymous', 'nonsynonymous'}
+    if snp_type in valid_types:
+        return snp_type
+
+    text = str(gene_position).lower() if pd.notna(gene_position) else ''
+
+    if 'noncoding' in text:
+        return 'noncoding'
+    elif 'intergenic' in text:
+        return 'intergenic'
+    elif 'pseudogene' in text:
+        return 'pseudogene'
+    elif 'coding' in text:
+        return 'nonsynonymous'
+    else:
+        return 'unknown'

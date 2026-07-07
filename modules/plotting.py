@@ -4,7 +4,7 @@ Plotting utilities for mutation analysis pipeline.
 Includes:
 - Bubble plot (mutation summary)
 - Mutation spectrum plot
-- Time trajectory plot （Not Used）
+- Time trajectory plot
 - Allele Freq Plot by Group
 - Parallel Mutation Plot
 """
@@ -34,24 +34,7 @@ def _validate_columns(df: pd.DataFrame, required_cols: List[str]) -> None:
         )
 
 
-def _parse_line_label(line: str) -> Tuple[Optional[str], Optional[str], Optional[str]]:
-    """
-    Parse labels like:
-    - sm-d120-me1-p
-    - d120-me1
-    Returns: (day, group, replicate)
-    """
-    if pd.isna(line):
-        return None, None, None
-
-    match = re.search(r"([dD]\d+)-([A-Za-z]+)(\d+)", str(line))
-    if not match:
-        return None, None, None
-
-    day = match.group(1)
-    group = match.group(2)
-    replicate = match.group(3)
-    return day, group, replicate
+from .utils import parse_line_label as _parse_line_label
 
 
 def _sort_day_labels(day_values: List[str]) -> List[str]:

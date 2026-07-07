@@ -11,6 +11,7 @@ This pipeline supports the following:
 - **Frequency-based filtering**: Generates filtered datasets at user-defined frequency thresholds
 - **Statistical summaries**: Calculates mutation class proportions, average frequencies, and (optionally) average coverage per strain
 - **Mutation analysis**: Identifies parallel mutations at the site and gene level, and unique mutations per strain
+- **Treatment specificity**: Associates parallel mutations with treatments using Fisher's exact tests (per gene), Dice similarity with a permutation test, and rank tests
 - **Neutral-model simulations**: Estimates expected dN/dS ratios and parallel-mutation counts under a null (neutral) model
 - **Plotting**: Generates bubble plots, mutation spectrum charts, parallel-mutation heatmaps, and allele frequency distributions
 
@@ -19,6 +20,7 @@ This pipeline supports the following:
 - Python 3.9+
 - pandas
 - numpy
+- scipy
 - matplotlib
 - openpyxl
 - gdtools*
@@ -33,7 +35,7 @@ git clone https://github.com/Alebraco/mutation_analysis
 cd mutation_analysis
 
 # Create and activate the conda environment
-conda create -n mutation_analysis -c bioconda pandas numpy matplotlib openpyxl breseq
+conda create -n mutation_analysis -c bioconda pandas numpy scipy matplotlib openpyxl breseq
 conda activate mutation_analysis
 
 # Optional: Install as pip package to use `mutanalysis` instead of `python main.py`
@@ -148,6 +150,8 @@ mutanalysis process KZ_19 sample_breseq_output.xlsx \
 | `input_file` | 2 | Yes* | — | Path to pre-processed mutation table |
 | `--header-row` | 2 | No | `0` | Header row index in the input file |
 | `--plot` | Both | No | — | Plot types: `bubble`, `spectrum`, `parallel`, `allele`, `trajectory` |
+| `--specificity-permutations` | Both | No | `10000` | Permutations for the treatment-specificity Dice test |
+| `--seed` | Both | No | — | Random seed for the specificity permutation test |
 
 \* Required within that mode.
 
@@ -244,7 +248,7 @@ mutanalysis simulate-parallel \
 
 ## Output Files
 
-All outputs are written to the directory specified by `--output` (default: `output_files/`).
+All outputs are written to the directory specified by `--output` (default: `output_files/`). The statistical tests (dN/dS test and treatment specificity) are written to a `statistical_tests/` subfolder; neutral-model simulations go to `expected/`.
 
 ### 1. Cleaned Data
 
@@ -315,7 +319,28 @@ Strain names that do not match this pattern still appear in the heatmap, but the
 | `gene_parallel_mutations.csv` | Mutations in the same gene across multiple strains (any position) |
 | `unique_mutations.csv` | Mutations present in only one strain |
 
-### 6. Simulation Outputs
+### 6. Statistical Tests
+
+Written to the `statistical_tests/` subfolder.
+
+#### dN/dS Test (Mode 1 only)
+
+| File | Description |
+| ---- | ----------- |
+| `base_substitution_counts.csv` | Raw output of `gdtools COUNT --base-substitution-statistics`: per-strain OBSERVED and POSSIBLE base-substitution counts (by coding category and substitution type) |
+| `dnds_test.csv` | Per-strain and pooled test of whether genome-wide dN/dS (nonsynonymous/synonymous) is elevated beyond the neutral expectation |
+
+#### Treatment Specificity
+
+Associates parallel mutations with treatments, adapting the approach from [barricklab/breseq-ext-specificity](https://github.com/barricklab/breseq-ext-specificity). Treatments are taken from the `group` token in each strain name (e.g. `me` in `d120-me1). It runs only when strain names encode a group and at least two treatments are present, otherwise it is skipped.
+
+| File | Description |
+|------|-------------|
+| `gene_specificity.csv` | Per gene (hit in >1 genome): genomes hit per treatment and a two-sided Fisher's exact p-value for whether the gene is preferentially mutated in one treatment (scored on genomes hit, not raw counts) |
+| `treatment_dice.csv` | Within- vs between-treatment mean Dice similarity of mutated-gene sets, with a label-permutation p-value for whether same-treatment lines are more similar than chance |
+| `treatment_rank_tests.csv` | Kruskal-Wallis (all treatments) and pairwise Mann-Whitney U tests on per-genome mutation burden |
+
+### 7. Simulation Outputs
 
 Written to `<output_dir>/expected/` by `simulate-dnds` and `simulate-parallel`. These commands write only to the `expected/` subdirectory. The `--output` directory will not obtain new files. The matching **observed** values come from `process` (see §5 above).
 
@@ -332,7 +357,9 @@ Written to `<output_dir>/expected/` by `simulate-dnds` and `simulate-parallel`. 
 
 ## Mutation Classification
 
-Mutations are classified from the `annotation` column in the following priority order:
+**Mode 1** (raw breseq output) runs `gdtools COMPARE -f JSON` and classifies each mutation directly from gdtools' fields: SNPs are labeled by its `snp_type` (synonymous, nonsynonymous, nonsense, noncoding, intergenic, pseudogene).
+
+**Mode 2** (pre-processed mutation table) classifies mutations from the `annotation` column in the following priority order:
 
 | Type | Criteria |
 | ---- | -------- |
@@ -357,11 +384,13 @@ mutation_analysis/
     ├── analysis.py             # Parallel and unique mutation detection
     ├── data_cleaner.py         # Removes nonstandard characters
     ├── data_loader.py          # Loads, standardizes, and filters input data
-    ├── gdtools_runner.py       # Launches gdtools COMPARE (Mode 1)
+    ├── dnds_test.py            # Observed dN/dS Fisher's exact test (Mode 1)
+    ├── gdtools_runner.py       # Launches gdtools COMPARE and COUNT (Mode 1)
     ├── mutation_classifier.py  # Classifies mutations by type
     ├── plotting.py             # Bubble plot, spectrum, heatmap, and allele distribution charts
+    ├── specificity.py          # Treatment-specificity analysis (Fisher, Dice, rank tests)
     ├── statistics.py           # Summary statistics and frequency filtering
-    ├── utils.py                # Shared data structures
+    ├── utils.py                # Shared data structures and the strain-label parser
     └── simulation/
         ├── dnds.py             # dN/dS simulation
         ├── parallel.py         # Parallel mutation simulation

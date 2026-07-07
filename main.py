@@ -15,8 +15,7 @@ import sys
 
 SUBCOMMANDS = ('process', 'simulate-dnds', 'simulate-parallel')
 
-
-def build_parser() -> argparse.ArgumentParser:
+def build_parser():
     parser = argparse.ArgumentParser(
         prog='mutanalysis',
         description='Analyze mutation data from breseq output files and run neutral-model simulations.',
@@ -30,7 +29,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def add_process_parser(subparsers) -> None:
+def add_process_parser(subparsers):
     p = subparsers.add_parser(
         'process',
         help='Process breseq outputs (or a pre-built mutation table) and run analysis.',
@@ -46,6 +45,11 @@ def add_process_parser(subparsers) -> None:
                         'parallel (gene-level parallel-mutation heatmap), '
                         'allele (allele frequency distribution by group/day), '
                         'trajectory (total mutations over time per group)')
+    p.add_argument('--specificity-permutations', type=int, default=10000,
+                   help='Permutations for the treatment-specificity Dice test '
+                        '(default: 10000; 0 skips the permutation p-value)')
+    p.add_argument('--seed', type=int, default=None,
+                   help='Random seed for the specificity permutation test (default: none)')
 
     mode1 = p.add_argument_group('Mode 1: raw breseq output')
     mode1.add_argument('--samples-dir', metavar='DIR',
@@ -62,7 +66,7 @@ def add_process_parser(subparsers) -> None:
                        help='Header row index for input file (default: 0)')
 
 
-def add_simulate_dnds_parser(subparsers) -> None:
+def add_simulate_dnds_parser(subparsers):
     p = subparsers.add_parser(
         'simulate-dnds',
         help='Expected dN/dS under neutrality (null model).',
@@ -70,7 +74,7 @@ def add_simulate_dnds_parser(subparsers) -> None:
     add_simulation_common_args(p, default_replicates=1000)
 
 
-def add_simulate_parallel_parser(subparsers) -> None:
+def add_simulate_parallel_parser(subparsers):
     p = subparsers.add_parser(
         'simulate-parallel',
         help='Expected parallel-mutation counts under neutrality (null model).',
@@ -78,24 +82,24 @@ def add_simulate_parallel_parser(subparsers) -> None:
     add_simulation_common_args(p, default_replicates=10000)
 
 
-def add_simulation_common_args(p: argparse.ArgumentParser, default_replicates: int) -> None:
-    p.add_argument('--input', required=True,
+def add_simulation_common_args(parser, default_replicates):
+    parser.add_argument('--input', required=True,
                    help='Path to cleaned_data.csv produced by `mutanalysis process`.')
-    p.add_argument('--reference', required=True,
+    parser.add_argument('--reference', required=True,
                    help='Reference genome: .gbk/.gb/.gbff, .fasta/.fna/.fa, or .gff/.gff3.')
-    p.add_argument('--companion', default=None,
+    parser.add_argument('--companion', default=None,
                    help='Companion GFF/FASTA file if the --reference does not include both sequence and annotations.')
-    p.add_argument('--ancestor', required=True,
+    parser.add_argument('--ancestor', required=True,
                    help='Ancestor column name (matches the argument given to `mutanalysis process`).')
-    p.add_argument('--output', default='output_files',
+    parser.add_argument('--output', default='output_files',
                    help='Output directory (default: output_files/)')
-    p.add_argument('--replicates', type=int, default=default_replicates,
+    parser.add_argument('--replicates', type=int, default=default_replicates,
                    help=f'Number of replicates (default: {default_replicates}).')
-    p.add_argument('--seed', type=int, default=None,
+    parser.add_argument('--seed', type=int, default=None,
                    help='Random seed for reproducibility (default: none).')
 
 
-def run_process(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
+def run_process(args, parser):
     from modules.data_loader import load_and_filter
     from modules.statistics import calculate_basic_stats, frequency_filter
     from modules.analysis import mutation_analysis
@@ -111,9 +115,14 @@ def run_process(args: argparse.Namespace, parser: argparse.ArgumentParser) -> No
         parser.error('Both --samples-dir and --reference are required.')
 
     os.makedirs(args.output, exist_ok=True)
+    stats_dir = os.path.join(args.output, 'statistical_tests')
 
     if use_mode1:
-        from modules.gdtools_runner import find_gd_files, find_summary_jsons, run_gdtools_compare
+        import pandas as pd
+        from modules.gdtools_runner import (
+            find_gd_files, find_summary_jsons, run_gdtools_compare, run_gdtools_count,
+        )
+
         gd_files = find_gd_files(args.samples_dir)
         if not gd_files:
             sys.exit(f'No output.gd files found in {args.samples_dir}')
@@ -122,6 +131,15 @@ def run_process(args: argparse.Namespace, parser: argparse.ArgumentParser) -> No
         run_gdtools_compare(args.gdtools, args.reference, gd_files, compare_path)
         input_file = compare_path
         header_row = 0
+
+        from modules.dnds_test import compute_dnds_test
+        os.makedirs(stats_dir, exist_ok=True)
+        count_path = os.path.join(stats_dir, 'base_substitution_counts.csv')
+        run_gdtools_count(args.gdtools, args.reference, gd_files, count_path)
+        dnds_df = compute_dnds_test(pd.read_csv(count_path))
+        dnds_file = os.path.join(stats_dir, 'dnds_test.csv')
+        dnds_df.to_csv(dnds_file, index=False)
+        print(f'  Saved: {dnds_file}')
     else:
         input_file = args.input_file
         header_row = args.header_row
@@ -147,6 +165,12 @@ def run_process(args: argparse.Namespace, parser: argparse.ArgumentParser) -> No
         df_filtered.to_csv(filtered_file, index=False)
 
     mutation_analysis(df_clean, ancestor, args.output)
+
+    from modules.specificity import run_specificity_analysis
+    run_specificity_analysis(
+        df_clean, ancestor, stats_dir,
+        permutations=args.specificity_permutations, seed=args.seed,
+    )
 
     if args.plot:
         plots_dir = os.path.join(args.output, 'plots')
@@ -188,7 +212,7 @@ def run_process(args: argparse.Namespace, parser: argparse.ArgumentParser) -> No
     print("Analysis complete.")
 
 
-def run_simulation(args: argparse.Namespace, parser: argparse.ArgumentParser, kind: str) -> None:
+def run_simulation(args, parser, kind):
     import pandas as pd
 
     if args.replicates < 1:

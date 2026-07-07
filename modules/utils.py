@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+import re
+
+import pandas as pd
+
 # Codon table and descriptive columns for mutation analysis
 codon_table = {
     'TTT': 'F', 'TTC': 'F', 'TTA': 'L', 'TTG': 'L',
@@ -34,3 +38,26 @@ def get_strain_columns(df, ancestor):
     strain_cols = [col for col in df.columns if col not in excluded_cols]
 
     return strain_cols
+
+
+def parse_line_label(line):
+    '''
+    Parse labels like:
+    - sm-d120-me1-p
+    - d120-me1
+    Returns: (day, group, replicate)
+
+    The `group` token is the treatment identifier used by the specificity
+    analysis, so both plotting and specificity share this one parser.
+    '''
+    if pd.isna(line):
+        return None, None, None
+
+    match = re.search(r"([dD]\d+)-([A-Za-z]+)(\d+)", str(line))
+    if not match:
+        return None, None, None
+
+    day = match.group(1)
+    group = match.group(2)
+    replicate = match.group(3)
+    return day, group, replicate
