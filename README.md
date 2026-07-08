@@ -367,7 +367,7 @@ Retrieve nucleotide sequence (and translated protein if coding) for genes with a
 |------|-------------|
 | `gene_sequences_nt.fasta` | One record per mutated gene/feature, reference nucleotide sequence (reverse-complemented for `-` strand) |
 | `gene_sequences_aa.fasta` | Translated protein sequence, CDS features only |
-| `gene_sequences_manifest.csv` | One row per gene: coordinates, strand, type, gene name/description (from the table), protein length, and the mutation positions that hit it |
+| `gene_sequences_manifest.csv` | One row per gene: coordinates, strand, type, gene name/description, protein length, and mutated positions |
 
 ### 9. Simulation Outputs
 
