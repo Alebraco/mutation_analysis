@@ -17,19 +17,21 @@ CATEGORIES = ('intergenic', 'RNA', 'S', 'NS', 'STOP')
 
 
 def run_dnds_simulation(
-    df_clean: pd.DataFrame,
-    ancestor: str,
-    reference_path: str,
-    output_dir: str,
-    file_stem: str,
-    companion_path: str | None = None,
-    n_replicates: int = 1000,
-    freq_threshold: float = 0.05,
-    seed: int | None = None,
-) -> None:
+    df_clean,
+    ancestor,
+    reference_path,
+    output_dir,
+    file_stem,
+    companion_path=None,
+    n_replicates=1000,
+    freq_threshold=0.05,
+    seed=None,
+):
     '''
     Simulate `n_replicates` neutral mutation replicates and write the expected
     mutation proportions.
+
+    Adapted from Dr. Louis-Marie Bobay's script.
     '''
 
     seq, gff = load_reference(reference_path, companion_path=companion_path)
@@ -41,8 +43,7 @@ def run_dnds_simulation(
     pointer, total_length = build_contig_pointers(seq)
     rng = random.Random(seed)
 
-    # typing[st][category] -> list of per-replicate counts
-    typing: dict[str, dict[str, list[float]]] = {
+    typing = {
         st: {cat: [] for cat in CATEGORIES} for st in load
     }
 
@@ -60,7 +61,7 @@ def run_dnds_simulation(
     per_strain_path = os.path.join(output_dir, 'expected', f'expdNdS_{file_stem}.csv')
     avg_path = os.path.join(output_dir, 'expected', f'avg_expdNdS_{file_stem}.csv')
 
-    averages: dict[str, dict[str, float]] = {
+    averages = {
         st: {cat: float(np.mean(typing[st][cat])) for cat in CATEGORIES}
         for st in typing
     }
@@ -77,7 +78,7 @@ def run_dnds_simulation(
                 writer.writerow([st, cat, coeff * mean])
     print(f'  Saved: {per_strain_path}')
 
-    super_average: dict[str, list[float]] = {cat: [] for cat in CATEGORIES}
+    super_average = {cat: [] for cat in CATEGORIES}
     for cats in averages.values():
         for cat in CATEGORIES:
             super_average[cat].append(cats[cat])
@@ -95,10 +96,10 @@ def run_dnds_simulation(
 
 
 def classify_replicate(
-    seq: dict[str, str],
-    gff: dict[str, dict[int, list]],
-    picks: list[tuple[str, int, str, str]],
-) -> dict[str, int]:
+    seq,
+    gff,
+    picks,
+):
     '''Apply the simulated mutations and counts the categories for a single replicate.'''
     counts = {cat: 0 for cat in CATEGORIES}
 

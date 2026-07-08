@@ -14,19 +14,21 @@ from .reference_loader import load_reference
 
 
 def run_parallel_simulation(
-    df_clean: pd.DataFrame,
-    ancestor: str,
-    reference_path: str,
-    output_dir: str,
-    file_stem: str,
-    companion_path: str | None = None,
-    n_replicates: int = 10000,
-    freq_threshold: float = 0.05,
-    seed: int | None = None,
-) -> None:
+    df_clean,
+    ancestor,
+    reference_path,
+    output_dir,
+    file_stem,
+    companion_path=None,
+    n_replicates=10000,
+    freq_threshold=0.05,
+    seed=None,
+):
     '''
     Simulate `n_replicates` neutral mutation replicates and write the expected
     number of parallel sites and parallel genes per strain pair.
+
+    Adapted from Dr. Louis-Marie Bobay's script.
     '''
 
     seq, gff = load_reference(reference_path, companion_path=companion_path)
@@ -41,24 +43,24 @@ def run_parallel_simulation(
     strains = sorted(load.keys())
     pair_list = list(combinations(strains, 2))
 
-    site_totals: dict[tuple[str, str], int] = {p: 0 for p in pair_list}
-    gene_totals: dict[tuple[str, str], int] = {p: 0 for p in pair_list}
+    site_totals = {p: 0 for p in pair_list}
+    gene_totals = {p: 0 for p in pair_list}
 
     for rep_idx in range(1, n_replicates + 1):
         if rep_idx % 100 == 0:
             print(f'[simulate-parallel] replicate {rep_idx}/{n_replicates}')
 
-        replicate_picks: dict[str, list[tuple[str, int, str, str]]] = {}
+        replicate_picks = {}
         for st in strains:
             replicate_picks[st] = draw_replicate(
                 seq, pointer, total_length, alpha, outcome, load[st], rng
             )
 
-        by_site: dict[str, set[tuple[str, int]]] = {}
-        by_gene: dict[str, set[tuple[str, str]]] = {}
+        by_site = {}
+        by_gene = {}
         for st, picks in replicate_picks.items():
-            site_set: set[tuple[str, int]] = set()
-            gene_set: set[tuple[str, str]] = set()
+            site_set = set()
+            gene_set = set()
             for contig, pos, n1, n2 in picks:
                 site_set.add((contig, pos))
                 features = gff.get(contig, {}).get(pos)

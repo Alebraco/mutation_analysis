@@ -1,9 +1,5 @@
 import os
 
-Feature = list  # [name, start, end, strand, gene_type]
-GffIndex = dict[str, dict[int, list[Feature]]]
-SeqMap = dict[str, str]
-
 DEFAULT_CATEGORIES = ('CDS', 'tRNA', 'rRNA', 'ncRNA', 'tmRNA')
 
 FASTA_EXTS = {'.fasta', '.fna', '.fa'}
@@ -11,11 +7,7 @@ GFF_EXTS = {'.gff', '.gff3'}
 GENBANK_EXTS = {'.gbk', '.gb', '.gbff'}
 
 
-def load_reference(
-    reference_path: str,
-    companion_path: str | None = None,
-    categories: tuple[str, ...] = DEFAULT_CATEGORIES,
-) -> tuple[SeqMap, GffIndex]:
+def load_reference(reference_path, companion_path=None, categories=DEFAULT_CATEGORIES):
     '''
     Load a reference genome and its feature annotations.
 
@@ -53,15 +45,34 @@ def load_reference(
     raise ValueError(f'Unsupported reference extension: {ext} (path: {reference_path})')
 
 
-def load_fasta_file(path: str) -> SeqMap:
+def load_sequences(reference_path, companion_path=None):
+    '''Return only the contig to sequence map (no annotations needed).'''
+    ext = os.path.splitext(reference_path)[1].lower()
+    if ext in GENBANK_EXTS:
+        return load_genbank(reference_path, DEFAULT_CATEGORIES)[0]
+    if ext in FASTA_EXTS:
+        return load_fasta_file(reference_path)
+    if ext in GFF_EXTS:
+        seq, _ = load_gff_with_optional_fasta(reference_path, DEFAULT_CATEGORIES)
+        if not seq:
+            if not companion_path:
+                raise ValueError(
+                    f'GFF reference {reference_path} has no embedded FASTA.'
+                    'Provide a companion FASTA.')
+            seq = load_fasta_file(companion_path)
+        return seq
+    raise ValueError(f'Unsupported reference extension: {ext} (path: {reference_path})')
+
+
+def load_fasta_file(path):
     with open(path, 'r') as f:
         return parse_fasta(f)
 
 
-def parse_fasta(lines) -> SeqMap:
-    seq: SeqMap = {}
-    current: str | None = None
-    buf: list[str] = []
+def parse_fasta(lines):
+    seq = {}
+    current = None
+    buf = []
     for raw_line in lines:
         line = raw_line.strip()
         if not line:
@@ -78,8 +89,8 @@ def parse_fasta(lines) -> SeqMap:
     return seq
 
 
-def load_gff_file(path: str, categories: tuple[str, ...]) -> GffIndex:
-    gff: GffIndex = {}
+def load_gff_file(path, categories):
+    gff = {}
 
     with open(path, 'r') as f:
         for line in f:
@@ -89,16 +100,13 @@ def load_gff_file(path: str, categories: tuple[str, ...]) -> GffIndex:
     return gff
 
 
-def load_gff_with_optional_fasta(
-    path: str, 
-    categories: tuple[str, ...]
-    ) -> tuple[SeqMap, GffIndex]:
-    gff: GffIndex = {}
-    seq: SeqMap = {}
-    
+def load_gff_with_optional_fasta(path, categories):
+    gff = {}
+    seq = {}
+
     with open(path, 'r') as f:
         in_fasta = False
-        fasta_lines: list[str] = []
+        fasta_lines = []
         for line in f:
             if in_fasta:
                 fasta_lines.append(line)
@@ -112,12 +120,7 @@ def load_gff_with_optional_fasta(
     return seq, gff
 
 
-def ingest_gff_line(
-        line: str,
-        gff: GffIndex, 
-        categories: tuple[str, ...]
-        ) -> None:
-    
+def ingest_gff_line(line, gff, categories):
     if not line or line.startswith('#'):
         return
     parts = line.rstrip('\n').split('\t')
@@ -133,22 +136,20 @@ def ingest_gff_line(
         return
     name = f'{contig}_{start}_{end}'
     bucket = gff.setdefault(contig, {})
-    feature: Feature = [name, start, end, strand, gene_type]
+    feature = [name, start, end, strand, gene_type]
     for pos in range(start, end + 1):
         bucket.setdefault(pos, []).append(feature)
 
 
-def load_genbank(path: str, 
-                 categories: tuple[str, ...]
-                 ) -> tuple[SeqMap, GffIndex]:
+def load_genbank(path, categories):
     try:
         from Bio import SeqIO
     except ImportError as exc:
         raise ImportError(f'{exc}\n'
-            'Reading GenBank references requires biopython. Install it with `pip install Bio`.') 
+            'Reading GenBank references requires biopython. Install it with `pip install Bio`.')
 
-    seq: SeqMap = {}
-    gff: GffIndex = {}
+    seq = {}
+    gff = {}
     allowed = {c.lower() for c in categories}
 
     for record in SeqIO.parse(path, 'genbank'):
@@ -160,14 +161,14 @@ def load_genbank(path: str,
             if ftype.lower() not in allowed:
                 continue
 
-            start = int(feat.location.start) + 1  
+            start = int(feat.location.start) + 1
             end = int(feat.location.end)
             strand = '+' if feat.location.strand in (1, None) else '-'
             name = f'{contig}_{start}_{end}'
 
             # Normalize category names to match defined categories
             canonical = {c.lower(): c for c in categories}[ftype.lower()]
-            feature: Feature = [name, start, end, strand, canonical]
+            feature = [name, start, end, strand, canonical]
             for pos in range(start, end + 1):
                 bucket.setdefault(pos, []).append(feature)
     return seq, gff

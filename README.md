@@ -123,7 +123,8 @@ mutanalysis process <ancestor> <input_file> \
   [--header-row <int>] \
   [--output <output_dir>] \
   [--threshold 0.25 0.5 0.75 1.0] \
-  [--plot bubble spectrum parallel allele trajectory]
+  [--plot bubble spectrum parallel allele trajectory] \
+  [--pseudoclones --reference <reference.gbk>]
 ```
 
 **Example:**
@@ -143,13 +144,16 @@ mutanalysis process KZ_19 sample_breseq_output.xlsx \
 | --- | --- | --- | --- | --- |
 | `ancestor` | Both | Yes | — | Ancestor strain column name (e.g., `KZ_19`) |
 | `--output` | Both | No | `output_files/` | Output directory for results |
+| `--reference` | Both | Yes | — | Reference genome. Required in Mode 1; in Mode 2 it enables `--pseudoclones` |
 | `--threshold` | Both | No | — | Space-separated frequency thresholds for filtering |
 | `--samples-dir` | 1 | Yes* | — | Directory containing breseq sample folders |
-| `--reference` | 1 | Yes* | — | Reference genome file used in the original breseq run |
 | `--gdtools` | 1 | No | `gdtools` | Path to gdtools executable (not needed if using **conda**) |
 | `input_file` | 2 | Yes* | — | Path to pre-processed mutation table |
 | `--header-row` | 2 | No | `0` | Header row index in the input file |
 | `--plot` | Both | No | — | Plot types: `bubble`, `spectrum`, `parallel`, `allele`, `trajectory` |
+| `--pseudoclones` | Both | No | off | Generate pseudoclone genomes per sample/frequency bin (needs `--reference`) |
+| `--pseudoclone-bin-width` | Both | No | `0.1` | Frequency-bin width for pseudoclones (default: deciles) |
+| `--pseudoclone-min-freq` | Both | No | `0.05` | Minimum per-sample frequency for a SNP to enter a pseudoclone |
 | `--specificity-permutations` | Both | No | `10000` | Permutations for the treatment-specificity Dice test |
 | `--seed` | Both | No | — | Random seed for the specificity permutation test |
 
@@ -160,6 +164,8 @@ mutanalysis process KZ_19 sample_breseq_output.xlsx \
 ### `simulate-dnds` — Expected dN/dS under neutrality
 
 Runs a neutral-model simulation to estimate what fraction of mutations would be synonymous, nonsynonymous, nonsense, RNA genes, or intergenic purely by chance. Deviations from these expected values indicate selection.
+
+*Adapted from Dr. Louis-Marie Bobay's scripts.*
 
 Outputs **expected** values only (under neutral model), written to `<output>/expected/`. Compare against the observed mutation proportions in `mutation_summary.csv` from a prior `process` run.
 
@@ -205,6 +211,8 @@ mutanalysis simulate-dnds \
 
 Estimates how many sites and genes would mutate independently in multiple strains at random (neutral expectation).
 
+*Adapted from Dr. Louis-Marie Bobay's scripts.*
+
 Outputs **expected** values only (under neutral model), written to `<output>/expected/`. Compare against the observed counts in `site_parallel_mutations.csv` / `gene_parallel_mutations.csv` from a prior `process` run.
 
 **Requires `cleaned_data.csv` from a prior `process` run.**
@@ -248,7 +256,7 @@ mutanalysis simulate-parallel \
 
 ## Output Files
 
-All outputs are written to the directory specified by `--output` (default: `output_files/`). The statistical tests (dN/dS test and treatment specificity) are written to a `statistical_tests/` subfolder; neutral-model simulations go to `expected/`.
+All outputs are written to the directory specified by `--output` (default: `output_files/`). The statistical tests (dN/dS test and treatment specificity) are written to a `statistical_tests/` subfolder; pseudoclone genomes go to `pseudoclones/`; neutral-model simulations go to `expected/`.
 
 ### 1. Cleaned Data
 
@@ -340,7 +348,16 @@ Associates parallel mutations with treatments, adapting the approach from [barri
 | `treatment_dice.csv` | Within- vs between-treatment mean Dice similarity of mutated-gene sets, with a label-permutation p-value for whether same-treatment lines are more similar than chance |
 | `treatment_rank_tests.csv` | Kruskal-Wallis (all treatments) and pairwise Mann-Whitney U tests on per-genome mutation burden |
 
-### 7. Simulation Outputs
+### 7. Pseudoclones (optional, `--pseudoclones`)
+
+Optional clonal deconvolution and contamination checks (large output, generates whole genomes). For each sample, SNPs are grouped into frequency bins. Each sample / bin becomes one pseudoclone genome by applying the SNPs to the reference genome (`--reference` is required). Written to the `pseudoclones/` subfolder.
+
+| File | Description |
+|------|-------------|
+| `pseudoclones.fa` | One FASTA record per pseudoclone (`<sample>__f<low>-<high>`) |
+| `pseudoclone_manifest.csv` | One row per pseudoclone: source sample, frequency-bin bounds, SNPs applied, and SNPs skipped |
+
+### 8. Simulation Outputs
 
 Written to `<output_dir>/expected/` by `simulate-dnds` and `simulate-parallel`. These commands write only to the `expected/` subdirectory. The `--output` directory will not obtain new files. The matching **observed** values come from `process` (see §5 above).
 
@@ -388,6 +405,7 @@ mutation_analysis/
     ├── gdtools_runner.py       # Launches gdtools COMPARE and COUNT (Mode 1)
     ├── mutation_classifier.py  # Classifies mutations by type
     ├── plotting.py             # Bubble plot, spectrum, heatmap, and allele distribution charts
+    ├── pseudoclones.py         # Pseudoclone genomes per sample/frequency bin (--pseudoclones)
     ├── specificity.py          # Treatment-specificity analysis (Fisher, Dice, rank tests)
     ├── statistics.py           # Summary statistics and frequency filtering
     ├── utils.py                # Shared data structures and the strain-label parser

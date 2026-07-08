@@ -8,7 +8,7 @@ COMPLEMENT = {
 }
 
 
-def rev_comp(seq: str) -> str:
+def rev_comp(seq):
     seq = seq.upper()
     out = []
     for base in reversed(seq):
@@ -19,7 +19,7 @@ def rev_comp(seq: str) -> str:
     return ''.join(out)
 
 
-def translate(seq: str) -> str:
+def translate(seq):
     seq = seq.upper()
     aas = []
     i = 0

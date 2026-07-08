@@ -8,11 +8,8 @@ Includes:
 - Allele Freq Plot by Group
 - Parallel Mutation Plot
 """
-from __future__ import annotations
-
 import re
 from pathlib import Path
-from typing import Optional, Dict, Tuple, List
 
 import numpy as np
 import pandas as pd
@@ -25,7 +22,7 @@ from matplotlib.colors import ListedColormap
 from matplotlib.patches import Patch
 
 
-def _validate_columns(df: pd.DataFrame, required_cols: List[str]) -> None:
+def _validate_columns(df, required_cols):
     missing = [col for col in required_cols if col not in df.columns]
     if missing:
         raise ValueError(
@@ -37,15 +34,15 @@ def _validate_columns(df: pd.DataFrame, required_cols: List[str]) -> None:
 from .utils import parse_line_label as _parse_line_label
 
 
-def _sort_day_labels(day_values: List[str]) -> List[str]:
-    def key_func(x: str):
+def _sort_day_labels(day_values):
+    def key_func(x):
         m = re.search(r"(\d+)", str(x))
         return int(m.group(1)) if m else 999999
 
     return sorted(day_values, key=key_func)
 
 
-def _adjust_color_lightness(color: str, factor: float) -> str:
+def _adjust_color_lightness(color, factor):
     rgb = np.array(to_rgb(color))
     if factor >= 1:
         adjusted = rgb + (1 - rgb) * (factor - 1)
@@ -55,7 +52,7 @@ def _adjust_color_lightness(color: str, factor: float) -> str:
     return to_hex(adjusted)
 
 
-def _build_color_map(groups: List[str], days: List[str], base_colors: Optional[Dict[str, str]] = None):
+def _build_color_map(groups, days, base_colors=None):
     if base_colors is None:
         default_palette = ["#70AD47", "#8E63CE", "#ED7D31", "#5B9BD5", "#C0504D", "#4BACC6"]
         base_colors = {g: default_palette[i % len(default_palette)] for i, g in enumerate(groups)}
@@ -75,7 +72,7 @@ def _build_color_map(groups: List[str], days: List[str], base_colors: Optional[D
     return color_map
 
 
-def _nice_round(x: float) -> int:
+def _nice_round(x):
     x = float(x)
     if x <= 0:
         return 0
@@ -90,7 +87,7 @@ def _nice_round(x: float) -> int:
     return int(round(x / 100) * 100)
 
 
-def _get_size_legend_values(values, n_levels: int = 3):
+def _get_size_legend_values(values, n_levels=3):
     arr = np.asarray(values, dtype=float)
     arr = arr[np.isfinite(arr)]
 
@@ -112,7 +109,7 @@ def _get_size_legend_values(values, n_levels: int = 3):
     return vals if vals else [1, 2, 3]
 
 
-def _compute_size_scale(values, target_max_area: float = 700.0) -> float:
+def _compute_size_scale(values, target_max_area=700.0):
     arr = np.asarray(values, dtype=float)
     arr = arr[np.isfinite(arr) & (arr > 0)]
 
@@ -127,20 +124,20 @@ def _compute_size_scale(values, target_max_area: float = 700.0) -> float:
 
 
 def plot_mutation_bubble(
-    input_file: str,
-    output_file: Optional[str] = None,
-    x_col: str = "Nonsynonymous",
-    y_col: str = "Average Frequency",
-    size_col: str = "Total Mutations",
-    line_col: str = "Line",
-    title: str = "Mutation Frequency and Nonsynonymous Proportion",
-    panel_by_group: bool = False,
-    base_colors: Optional[Dict[str, str]] = None,
-    add_reference_line: bool = True,
-    reference_x: float = 2 / 3,
-    figsize: tuple = (12, 7),
-    dpi: int = 200,
-    show: bool = True,
+    input_file,
+    output_file=None,
+    x_col="Nonsynonymous",
+    y_col="Average Frequency",
+    size_col="Total Mutations",
+    line_col="Line",
+    title="Mutation Frequency and Nonsynonymous Proportion",
+    panel_by_group=False,
+    base_colors=None,
+    add_reference_line=True,
+    reference_x=2 / 3,
+    figsize=(12, 7),
+    dpi=200,
+    show=True,
 ):
     """
     Plot mutation summary bubble plot from a CSV/TSV/Excel file.
@@ -346,12 +343,12 @@ def plot_mutation_bubble(
 
 
 def plot_mutation_spectrum(
-    input_file: str,
-    output_file: Optional[str] = None,
-    line_col: str = "Line",
-    figsize: tuple = (10, 6),
-    dpi: int = 200,
-    show: bool = True,
+    input_file,
+    output_file=None,
+    line_col="Line",
+    figsize=(10, 6),
+    dpi=200,
+    show=True,
 ):
     """
     Plot mutation spectrum (stacked bar plot).
@@ -464,10 +461,10 @@ def plot_mutation_spectrum(
 
 
 def plot_time_trajectory(
-    input_file: str,
-    y_col: str = "Total Mutations",
-    output_file: Optional[str] = None,
-    show: bool = True,
+    input_file,
+    y_col="Total Mutations",
+    output_file=None,
+    show=True,
 ):
 
 
@@ -555,11 +552,11 @@ def plot_time_trajectory(
     return fig
 
 def plot_allele_distribution(
-    input_file: str,
-    output_file: Optional[str] = None,
-    figsize: tuple = (12, 6),
-    dpi: int = 200,
-    show: bool = True,
+    input_file,
+    output_file=None,
+    figsize=(12, 6),
+    dpi=200,
+    show=True,
 ):
     """
     Plot allele frequency distribution from cleaned_data.
@@ -676,8 +673,8 @@ def plot_parallel_mutation_heatmap(
     top_n=15,
     day_order=("d60", "d120", "d180"),
     condition_order=("me", "pe"),
-    output_file: Optional[str] = None,
-    show: bool = True,
+    output_file=None,
+    show=True,
 ):
     """
     Create a gene-level parallel mutation heatmap.

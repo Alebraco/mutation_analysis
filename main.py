@@ -37,8 +37,20 @@ def add_process_parser(subparsers):
     p.add_argument('ancestor', help='Ancestor name (e.g., "KZ_19")')
     p.add_argument('--output', default='output_files',
                    help='Output directory (default: output_files/)')
+    p.add_argument('--reference',
+                   help='Reference genome (.gbk/.gb/.gbff, .fasta/.fna/.fa, or .gff/.gff3). '
+                        'Required for Mode 1, optional in Mode 2 (enables --pseudoclones).')
     p.add_argument('--threshold', nargs='+', type=float, default=[],
                    help='Mutation filtering based on frequency threshold (default: none)')
+    p.add_argument('--pseudoclones', action='store_true',
+                   help='Generate one pseudoclone genome per sample and frequency bin '
+                        '(clonal deconvolution / contamination check). Requires --reference; '
+                        'writes whole genomes, large output.')
+    p.add_argument('--pseudoclone-bin-width', type=float, default=0.1,
+                   help='Bin width (frequency) for pseudoclones (default: 0.1).')
+    p.add_argument('--pseudoclone-min-freq', type=float, default=0.05,
+                   help='Minimum frequency for a SNP to enter a pseudoclone '
+                        '(default: 0.05).')
     p.add_argument('--plot', nargs='+',
                    choices=['bubble', 'spectrum', 'parallel', 'allele', 'trajectory'],
                    help='Generate plots: bubble (summary bubble plot), spectrum (stacked mutation types), '
@@ -54,8 +66,6 @@ def add_process_parser(subparsers):
     mode1 = p.add_argument_group('Mode 1: raw breseq output')
     mode1.add_argument('--samples-dir', metavar='DIR',
                        help='Directory containing breseq sample folders (data/output.gd)')
-    mode1.add_argument('--reference',
-                       help='Reference genome file for gdtools COMPARE')
     mode1.add_argument('--gdtools', default='gdtools',
                        help='Path to gdtools executable (default: gdtools)')
 
@@ -104,15 +114,17 @@ def run_process(args, parser):
     from modules.statistics import calculate_basic_stats, frequency_filter
     from modules.analysis import mutation_analysis
 
-    use_mode1 = bool(args.samples_dir or args.reference)
+    use_mode1 = bool(args.samples_dir)
     use_mode2 = bool(args.input_file)
 
     if use_mode1 and use_mode2:
-        parser.error('Cannot use --samples-dir/--reference together with input_file.')
+        parser.error('Cannot use --samples-dir together with input_file.')
     if not use_mode1 and not use_mode2:
-        parser.error('Provide either input_file (processed file) or both --samples-dir and --reference (raw breseq outputs).')
-    if use_mode1 and not (args.samples_dir and args.reference):
-        parser.error('Both --samples-dir and --reference are required.')
+        parser.error('Provide either input_file (processed file) or --samples-dir with --reference (raw breseq outputs).')
+    if use_mode1 and not args.reference:
+        parser.error('--reference is required together with --samples-dir.')
+    if args.pseudoclones and not args.reference:
+        parser.error('--pseudoclones requires --reference.')
 
     os.makedirs(args.output, exist_ok=True)
     stats_dir = os.path.join(args.output, 'statistical_tests')
@@ -171,6 +183,14 @@ def run_process(args, parser):
         df_clean, ancestor, stats_dir,
         permutations=args.specificity_permutations, seed=args.seed,
     )
+
+    if args.pseudoclones:
+        from modules.pseudoclones import run_pseudoclone_analysis
+        run_pseudoclone_analysis(
+            df_clean, ancestor, args.reference,
+            os.path.join(args.output, 'pseudoclones'),
+            bin_width=args.pseudoclone_bin_width, min_freq=args.pseudoclone_min_freq,
+        )
 
     if args.plot:
         plots_dir = os.path.join(args.output, 'plots')
