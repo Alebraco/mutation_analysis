@@ -44,13 +44,15 @@ def add_process_parser(subparsers):
                    help='Mutation filtering based on frequency threshold (default: none)')
     p.add_argument('--pseudoclones', action='store_true',
                    help='Generate one pseudoclone genome per sample and frequency bin '
-                        '(clonal deconvolution / contamination check). Requires --reference; '
-                        'writes whole genomes, large output.')
+                        '(clonal deconvolution / contamination check). Requires --reference.')
     p.add_argument('--pseudoclone-bin-width', type=float, default=0.1,
                    help='Bin width (frequency) for pseudoclones (default: 0.1).')
     p.add_argument('--pseudoclone-min-freq', type=float, default=0.05,
                    help='Minimum frequency for a SNP to enter a pseudoclone '
                         '(default: 0.05).')
+    p.add_argument('--extract-sequences', action='store_true',
+                   help='Write nucleotide/protein FASTA files for mutated genes. '
+                        'Requires --reference.')
     p.add_argument('--plot', nargs='+',
                    choices=['bubble', 'spectrum', 'parallel', 'allele', 'trajectory'],
                    help='Generate plots: bubble (summary bubble plot), spectrum (stacked mutation types), '
@@ -125,6 +127,8 @@ def run_process(args, parser):
         parser.error('--reference is required together with --samples-dir.')
     if args.pseudoclones and not args.reference:
         parser.error('--pseudoclones requires --reference.')
+    if args.extract_sequences and not args.reference:
+        parser.error('--extract-sequences requires --reference.')
 
     os.makedirs(args.output, exist_ok=True)
     stats_dir = os.path.join(args.output, 'statistical_tests')
@@ -190,6 +194,12 @@ def run_process(args, parser):
             df_clean, ancestor, args.reference,
             os.path.join(args.output, 'pseudoclones'),
             bin_width=args.pseudoclone_bin_width, min_freq=args.pseudoclone_min_freq,
+        )
+
+    if args.extract_sequences:
+        from modules.sequence_extraction import run_sequence_extraction
+        run_sequence_extraction(
+            df_clean, args.reference, os.path.join(args.output, 'gene_sequences'),
         )
 
     if args.plot:

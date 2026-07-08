@@ -18,33 +18,22 @@ from .simulation.reference_loader import load_sequences
 SNP = re.compile(r'^([ACGT])→([ACGT])$')
 
 
-def _resolve(contigs, seq_id):
-    '''Table seq_id -> reference contig: by name, else by trailing index (contig_1 -> 1st).'''
-    if seq_id in contigs:
-        return seq_id
-    m = re.search(r'(\d+)$', seq_id)
-    return contigs[int(m.group(1)) - 1] if m and int(m.group(1)) <= len(contigs) else None
-
-
 def run_pseudoclone_analysis(df, ancestor, reference_path, output_dir,
                              companion_path=None, bin_width=0.1, min_freq=0.05):
     strains = get_strain_columns(df, ancestor)
     seqs = load_sequences(reference_path, companion_path)
-    contigs = list(seqs)
     n_bins = max(1, round(1.0 / bin_width))
 
-    # binned[strain][bin] -> list of (contig, pos, ref, alt)
     binned = {s: {} for s in strains}
     for _, row in df.iterrows():
         m = SNP.match(str(row['mutation']).strip())
         pos = pd.to_numeric(row['position'], errors='coerce')
         if not m or pd.isna(pos):
             continue
-        rec = (_resolve(contigs, str(row['seq_id'])), int(pos), m.group(1), m.group(2))
+        rec = (str(row['seq_id']), int(pos), m.group(1), m.group(2))
         for s in strains:
             freq = pd.to_numeric(row[s], errors='coerce')
             if pd.notna(freq) and freq >= min_freq:
-                # +1e-9 avoids float-floor errors, e.g. 0.3/0.1 == 2.9999996
                 b = min(int(freq / bin_width + 1e-9), n_bins - 1)
                 binned[s].setdefault(b, []).append(rec)
 

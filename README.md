@@ -124,7 +124,8 @@ mutanalysis process <ancestor> <input_file> \
   [--output <output_dir>] \
   [--threshold 0.25 0.5 0.75 1.0] \
   [--plot bubble spectrum parallel allele trajectory] \
-  [--pseudoclones --reference <reference.gbk>]
+  [--pseudoclones --reference <reference.gbk>] \
+  [--extract-sequences --reference <reference.gbk>]
 ```
 
 **Example:**
@@ -144,7 +145,7 @@ mutanalysis process KZ_19 sample_breseq_output.xlsx \
 | --- | --- | --- | --- | --- |
 | `ancestor` | Both | Yes | — | Ancestor strain column name (e.g., `KZ_19`) |
 | `--output` | Both | No | `output_files/` | Output directory for results |
-| `--reference` | Both | Yes | — | Reference genome. Required in Mode 1; in Mode 2 it enables `--pseudoclones` |
+| `--reference` | Both | Yes | — | Reference genome. Required in Mode 1; in Mode 2 it enables `--pseudoclones`/`--extract-sequences` |
 | `--threshold` | Both | No | — | Space-separated frequency thresholds for filtering |
 | `--samples-dir` | 1 | Yes* | — | Directory containing breseq sample folders |
 | `--gdtools` | 1 | No | `gdtools` | Path to gdtools executable (not needed if using **conda**) |
@@ -154,6 +155,7 @@ mutanalysis process KZ_19 sample_breseq_output.xlsx \
 | `--pseudoclones` | Both | No | off | Generate pseudoclone genomes per sample/frequency bin (needs `--reference`) |
 | `--pseudoclone-bin-width` | Both | No | `0.1` | Frequency-bin width for pseudoclones (default: deciles) |
 | `--pseudoclone-min-freq` | Both | No | `0.05` | Minimum per-sample frequency for a SNP to enter a pseudoclone |
+| `--extract-sequences` | Both | No | off | Write nucleotide/protein FASTA for mutated genes (needs `--reference`) |
 | `--specificity-permutations` | Both | No | `10000` | Permutations for the treatment-specificity Dice test |
 | `--seed` | Both | No | — | Random seed for the specificity permutation test |
 
@@ -256,7 +258,7 @@ mutanalysis simulate-parallel \
 
 ## Output Files
 
-All outputs are written to the directory specified by `--output` (default: `output_files/`). The statistical tests (dN/dS test and treatment specificity) are written to a `statistical_tests/` subfolder; pseudoclone genomes go to `pseudoclones/`; neutral-model simulations go to `expected/`.
+All outputs are written to the directory specified by `--output` (default: `output_files/`). The statistical tests (dN/dS test and treatment specificity) are written to a `statistical_tests/` subfolder; pseudoclone genomes go to `pseudoclones/`; extracted gene sequences go to `gene_sequences/`; neutral-model simulations go to `expected/`.
 
 ### 1. Cleaned Data
 
@@ -357,7 +359,17 @@ Optional clonal deconvolution and contamination checks (large output, generates 
 | `pseudoclones.fa` | One FASTA record per pseudoclone (`<sample>__f<low>-<high>`) |
 | `pseudoclone_manifest.csv` | One row per pseudoclone: source sample, frequency-bin bounds, SNPs applied, and SNPs skipped |
 
-### 8. Simulation Outputs
+### 8. Gene Sequences (optional, `--extract-sequences`)
+
+Retrieve nucleotide sequence (and translated protein if coding) for genes with at least one mutation from the reference (`--reference` is required). Genes are matched by position, not by name. Written to the `gene_sequences/` subfolder.
+
+| File | Description |
+|------|-------------|
+| `gene_sequences_nt.fasta` | One record per mutated gene/feature, reference nucleotide sequence (reverse-complemented for `-` strand) |
+| `gene_sequences_aa.fasta` | Translated protein sequence, CDS features only |
+| `gene_sequences_manifest.csv` | One row per gene: coordinates, strand, type, gene name/description (from the table), protein length, and the mutation positions that hit it |
+
+### 9. Simulation Outputs
 
 Written to `<output_dir>/expected/` by `simulate-dnds` and `simulate-parallel`. These commands write only to the `expected/` subdirectory. The `--output` directory will not obtain new files. The matching **observed** values come from `process` (see §5 above).
 
@@ -406,6 +418,7 @@ mutation_analysis/
     ├── mutation_classifier.py  # Classifies mutations by type
     ├── plotting.py             # Bubble plot, spectrum, heatmap, and allele distribution charts
     ├── pseudoclones.py         # Pseudoclone genomes per sample/frequency bin (--pseudoclones)
+    ├── sequence_extraction.py  # Nucleotide/protein FASTA for mutated genes (--extract-sequences)
     ├── specificity.py          # Treatment-specificity analysis (Fisher, Dice, rank tests)
     ├── statistics.py           # Summary statistics and frequency filtering
     ├── utils.py                # Shared data structures and the strain-label parser
