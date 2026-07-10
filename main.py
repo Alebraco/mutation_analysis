@@ -54,11 +54,16 @@ def add_process_parser(subparsers):
                    help='Write nucleotide/protein FASTA files for mutated genes. '
                         'Requires --reference.')
     p.add_argument('--plot', nargs='+',
-                   choices=['bubble', 'spectrum', 'parallel', 'allele', 'trajectory'],
+                   choices=['bubble', 'spectrum', 'parallel', 'allele', 'trajectory', 'genome'],
                    help='Generate plots: bubble (summary bubble plot), spectrum (stacked mutation types), '
                         'parallel (gene-level parallel-mutation heatmap), '
                         'allele (allele frequency distribution by group/day), '
-                        'trajectory (total mutations over time per group)')
+                        'trajectory (total mutations over time per group), '
+                        'genome (Kosterlitz zoomed genome plot of shared mutations; requires --reference)')
+    p.add_argument('--genome-min-strains', type=float, default=0.25,
+                   help='For --plot genome: minimum strains a genomic region must have mutations in'
+                        'to be shown and focus on parallel mutations. A fraction in (0,1) is '
+                        'a proportion of the strains. An integer is an absolute strain count.')
     p.add_argument('--specificity-permutations', type=int, default=10000,
                    help='Permutations for the treatment-specificity Dice test '
                         '(default: 10000; 0 skips the permutation p-value)')
@@ -237,6 +242,17 @@ def run_process(args, parser):
             plot_time_trajectory(summary_file,
                                  output_file=os.path.join(plots_dir, 'time_trajectory.png'),
                                  show=False)
+        if 'genome' in args.plot:
+            from modules.plotting import plot_zoomed_genome
+            if args.reference:
+                plot_zoomed_genome(
+                    clean_file, args.reference, ancestor=ancestor,
+                    min_strains=args.genome_min_strains,
+                    output_file=os.path.join(plots_dir, 'zoomed_genome.png'),
+                    show=False,
+                )
+            else:
+                print('Warning: --reference is required for the zoomed genome plot; skipping.', file=sys.stderr)
         print(f"Plots saved to {plots_dir}")
 
     print("Analysis complete.")

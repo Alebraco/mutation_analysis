@@ -45,6 +45,7 @@ def parse_line_label(line):
     Parse labels like:
     - sm-d120-me1-p
     - d120-me1
+    - d180-me-6-p   (separator between treatment and replicate)
     Returns: (day, group, replicate)
 
     The `group` token is the treatment identifier used by the specificity
@@ -53,7 +54,7 @@ def parse_line_label(line):
     if pd.isna(line):
         return None, None, None
 
-    match = re.search(r"([dD]\d+)-([A-Za-z]+)(\d+)", str(line))
+    match = re.search(r"([dD]\d+)[-_]([A-Za-z]+)[-_]?(\d+)", str(line))
     if not match:
         return None, None, None
 

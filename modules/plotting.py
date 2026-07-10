@@ -7,6 +7,7 @@ Includes:
 - Time trajectory plot
 - Allele Freq Plot by Group
 - Parallel Mutation Plot
+- Zoomed genome plot (Kosterlitz-style)
 """
 import re
 from pathlib import Path
@@ -19,7 +20,7 @@ from matplotlib.colors import to_hex, to_rgb
 
 import os
 from matplotlib.colors import ListedColormap
-from matplotlib.patches import Patch
+from matplotlib.patches import Patch, Rectangle, Polygon
 
 
 def _validate_columns(df, required_cols):
@@ -32,6 +33,7 @@ def _validate_columns(df, required_cols):
 
 
 from .utils import parse_line_label as _parse_line_label
+from .utils import get_strain_columns
 
 
 def _sort_day_labels(day_values):
@@ -486,6 +488,12 @@ def plot_time_trajectory(
     group_parsed = not df["Group"].isna().all()
     if not group_parsed:
         df["Group"] = "All"
+    else:
+        unlabeled = df.loc[df["Group"].isna(), "Line"].tolist()
+        if unlabeled:
+            print(f"Time trajectory plot: {len(unlabeled)} sample(s) had no parsable "
+                  f"day/treatment and are grouped as 'unassigned': {unlabeled}")
+            df["Group"] = df["Group"].fillna("unassigned")
 
     if df["Day"].isna().all():
         sample_values = df["Line"].dropna().head(3).tolist()
@@ -958,6 +966,483 @@ def plot_parallel_mutation_heatmap(
         if i < len(legend_specs) - 1:
             ax.add_artist(leg)
         y_anchor -= 0.05 * (len(handles) + 1) + 0.05
+
+    if output_file is not None:
+        fig.savefig(output_file, dpi=300, bbox_inches="tight")
+
+    if show:
+        plt.show()
+
+    return fig
+
+
+_STRUCT_COLORS = {
+    "snp": "#d62728",
+    "ins": "#000000",
+    "del": "#ffffff",
+    "other": "#7f7f7f",
+}
+
+# Match breseq patterns for different structural mutation types
+_SNP_RE = re.compile(r"^[ACGTN]\s*(?:→|->|>)\s*[ACGTN]$", re.IGNORECASE)
+_DEL_RE = re.compile(r"^Δ\s*([\d,]+)\s*bp$", re.IGNORECASE)
+_INS_RE = re.compile(r"^\+\s*([\d,]+)\s*bp$")
+_INS_SEQ_RE = re.compile(r"^\+\s*([ACGTN]+)$", re.IGNORECASE)
+_REPEAT_RE = re.compile(
+    r"^\(\s*([ACGTN]+)\s*\)\s*(\d+)\s*(?:→|->|>)\s*(\d+)$", re.IGNORECASE
+)
+_POSITION_RE = re.compile(r"^\s*([\d,]+)")
+
+
+def _parse_position(value):
+    """
+    Parse a breseq position cell into an int, handling thousands separators
+    and the ":N" sub-position suffix used for insertions.
+    """
+    if pd.isna(value):
+        return None
+    m = _POSITION_RE.match(str(value))
+    if not m:
+        return None
+    return int(m.group(1).replace(",", ""))
+
+
+def _classify_structural_mutation(mutation):
+    """
+    Classify a `mutation` string into a structural type (snp/ins/del/other)
+    """
+    s = str(mutation).strip()
+    if _SNP_RE.match(s):
+        return "snp", 0
+    m = _DEL_RE.match(s)
+    if m:
+        return "del", int(m.group(1).replace(",", ""))
+    m = _INS_RE.match(s)
+    if m:
+        return "ins", int(m.group(1).replace(",", ""))
+    m = _INS_SEQ_RE.match(s)
+    if m:
+        return "ins", len(m.group(1))
+    m = _REPEAT_RE.match(s)
+    if m:
+        unit, before, after = len(m.group(1)), int(m.group(2)), int(m.group(3))
+        delta = (after - before) * unit
+        return ("ins", delta) if delta > 0 else ("del", -delta)
+    return "other", 0
+
+
+def plot_zoomed_genome(
+    clean_csv,
+    reference_path,
+    companion_path=None,
+    ancestor=None,
+    output_file=None,
+    min_gap="gene",
+    gene_split_gap=10000,
+    section_buffer=1,
+    shared_only=True,
+    min_strains=0.25,
+    figsize=(15, 8),
+    dpi=200,
+    show=True,
+):
+    """
+    Genome plot adapted from Kosterlitz (https://github.com/livkosterlitz/Breseq_genome_plots)
+
+    Whole genome is a bar on top, the regions with mutations are
+    magnified into a strain table below (marks are colored by 
+    mutation type, rows grouped and colored by day+condition).
+    A variant histogram with counts is at the bottom.
+    Parallel mutations are represented by aligned marks
+    and wide histogram bars.
+
+    Parameters
+    ----------
+    clean_csv : str
+        Path to cleaned_data.csv
+    reference_path : str
+        Reference genome (.gbk/.fasta/.gff). 
+        Used only for contig lengths and coordinates 
+    companion_path : str, optional
+        Companion FASTA for a bare GFF reference.
+    ancestor : str, optional
+        Ancestor column name, excluded from the strain rows.
+    min_gap : int or "gene", default "gene"
+        How to group mutations into sections.
+        "gene" = one section per gene
+        int = new region when mutations are more than {min_gap} bp apart
+    gene_split_gap : int, default 10000
+        Only used when min_gap="gene". A gene name that reappears more than
+        this many bases away is treated as a separate locus.
+    section_buffer : int, default 1
+        Bases added to each end of a region.
+    shared_only : bool, default True
+        Keep only sections hit by more than one strain (parallel regions).
+        Set False to display every single region hit by mutations.
+    min_strains : float or int, default 0.25
+        Minimum number of strains a region must be mutated in to be kept,
+        used to focus the plot on parallel and drop isolated mutations.
+        Overrides shared_only.
+        - a fraction in (0, 1) is a proportion of strains
+          (0.25 keeps regions hit by more than 1/4 of strains)
+          the default adapts to datasets of any size
+        - an integer is an absolute strain count
+        - None uses the default shared_only (more or equal to 2 strains).
+
+    Output
+    -------
+    fig : matplotlib.figure.Figure or None
+        None if there is nothing to plot.
+    """
+    # Read data and reference
+
+    df = pd.read_csv(clean_csv)
+    _validate_columns(df, ["seq_id", "position", "mutation", "gene"])
+
+    from .simulation.reference_loader import load_sequences
+    from .simulation.mutation_model import build_contig_pointers
+
+    seq = load_sequences(reference_path, companion_path)
+    pointer, n_bases = build_contig_pointers(seq)
+    if not n_bases:
+        print("Zoomed genome plot skipped: reference has zero length.")
+        return None
+
+    strain_cols = get_strain_columns(df, ancestor)
+    if not strain_cols:
+        print("Zoomed genome plot skipped: no strain columns found.")
+        return None
+
+    # Convert data from wide to long format (one row per strain per mutation)
+    records = []
+    unmapped = set()
+    missing_contig = 0
+    unparsed_pos = 0
+    for _, row in df.iterrows():
+        if pd.isna(row["seq_id"]):
+            missing_contig += 1
+            continue
+        contig = str(row["seq_id"])
+        if contig not in pointer:
+            unmapped.add(contig)
+            continue
+        pos = _parse_position(row["position"])
+        if pos is None:
+            unparsed_pos += 1
+            continue
+        gpos = pointer[contig][0] + pos
+        mtype, _size = _classify_structural_mutation(row["mutation"])
+        gene = row["gene"]
+        gene = str(gene).strip() if pd.notna(gene) and str(gene).strip() else None
+        for strain in strain_cols:
+            cell = row[strain]
+            if pd.isna(cell) or str(cell).strip() in ("", "?"):
+                continue
+            day, group, replicate = _parse_line_label(strain)
+            records.append({
+                "strain": strain,
+                "day": day,
+                "group": group,
+                "replicate": replicate,
+                "gpos": gpos,
+                "mut": str(row["mutation"]).strip(),
+                "gene": gene if gene is not None else f"intergenic@{gpos}",
+                "mtype": mtype,
+                "size": _size,
+            })
+
+    if unmapped:
+        print(f"Zoomed genome plot: {len(unmapped)} contig(s) in the table were "
+              f"not found in the reference and were skipped: {sorted(unmapped)}")
+    if missing_contig:
+        print(f"Zoomed genome plot: {missing_contig} row(s) with no seq_id were skipped.")
+    if unparsed_pos:
+        print(f"Zoomed genome plot: {unparsed_pos} row(s) with an unparsable "
+              f"position were skipped.")
+    if not records:
+        print("Zoomed genome plot skipped: no mutations to plot.")
+        return None
+
+    long_df = pd.DataFrame(records)
+
+    # Group mutations into regions
+    gene_mode = isinstance(min_gap, str) and min_gap.lower() == "gene"
+    long_df["gend"] = long_df["gpos"] + long_df["size"].where(
+        long_df["mtype"] == "del", 0)
+
+    site_gene = {}
+    for _, rec in long_df.iterrows():
+        site_gene.setdefault(rec["gpos"], rec["gene"])
+        site_gene.setdefault(rec["gend"], rec["gene"])
+
+    pos2cid, cid = {}, 0
+    prev_pos, prev_gene = None, None
+    for pos in sorted(site_gene):
+        gene = site_gene[pos]
+        if prev_pos is not None:
+            if gene_mode:
+                split = gene != prev_gene or (pos - prev_pos) > gene_split_gap
+            else:
+                split = (pos - prev_pos) > int(min_gap)
+            if split:
+                cid += 1
+        pos2cid[pos] = cid
+        prev_pos, prev_gene = pos, gene
+
+    long_df["section_key"] = long_df["gpos"].map(pos2cid)
+    long_df["section_end"] = long_df["gend"].map(pos2cid)
+
+    sites_by_cid, strains_by_cid, gene_by_cid = {}, {}, {}
+    for pos, c in pos2cid.items():
+        sites_by_cid.setdefault(c, []).append(pos)
+        gene_by_cid.setdefault(c, site_gene[pos])
+    for _, rec in long_df.iterrows():
+        for c in range(rec["section_key"], rec["section_end"] + 1):
+            strains_by_cid.setdefault(c, set()).add(rec["strain"])
+
+    regions = []
+    for c, sites in sites_by_cid.items():
+        regions.append({
+            "key": c,
+            "init": min(sites) - section_buffer,
+            "fin": max(sites) + section_buffer,
+            "n_strains": len(strains_by_cid.get(c, ())),
+            "label": gene_by_cid[c] if gene_mode else "",
+        })
+
+    n_experiment_strains = len(strain_cols)
+    if min_strains is None:
+        threshold = 2 if shared_only else 1
+    elif 0 < min_strains < 1:
+        threshold = max(2, int(round(min_strains * n_experiment_strains)))
+    else:
+        threshold = int(min_strains)
+    if threshold > 1:
+        regions = [r for r in regions if r["n_strains"] >= threshold]
+        if not regions:
+            print(f"Zoomed genome plot skipped: no regions hit by at least "
+                  f"{threshold} strains (lower min_strains or set shared_only=False).")
+            return None
+
+    regions.sort(key=lambda r: r["init"])
+    keep_keys = {r["key"] for r in regions}
+    long_df = long_df[long_df["section_key"].isin(keep_keys)].copy()
+
+    # Each variant site is represented as a column in the plot.
+    kept_sites = sorted(pos for pos, c in pos2cid.items() if c in keep_keys)
+    n_sites = len(kept_sites)
+    site_idx = {pos: i for i, pos in enumerate(kept_sites)}
+
+    # Column width: equal per site, but adjusted to plots with only a few sites
+    # to use narrow cells (marks read as vertical bars) instead of wide blocks
+
+    MAX_COL_W = 0.025
+    unit_w = 1.0 / n_sites if n_sites else 1.0
+    capped = unit_w > MAX_COL_W
+    col_w = min(unit_w, MAX_COL_W)
+    table_w = n_sites * col_w
+    table_x0 = 0.0
+
+    def col_x(i):
+        return table_x0 + i * col_w
+
+    for s in regions:
+        idxs = [site_idx[p] for p in sites_by_cid[s["key"]] if p in site_idx]
+        s["new_init"] = col_x(min(idxs))
+        s["new_fin"] = col_x(max(idxs) + 1)
+        s["gb_init"] = table_x0 + (s["init"] / n_bases) * table_w
+        s["gb_fin"] = table_x0 + (s["fin"] / n_bases) * table_w
+    sec_by_key = {s["key"]: s for s in regions}
+
+    # Order treatments, then order strains within a treatment by variant count
+    strain_counts = long_df.groupby("strain").size().to_dict()
+    strain_first = long_df.groupby("strain")["gpos"].min().to_dict()
+
+    def strain_sort_key(strain):
+        day, group, rep = _parse_line_label(strain)
+        day_num = int(re.search(r"\d+", day).group()) if day else 10 ** 9
+        return (day_num, group or "~", strain_counts[strain],
+                strain_first[strain], strain)
+
+    ordered_strains = sorted(set(long_df["strain"]), key=strain_sort_key)
+
+    parsed = {s: _parse_line_label(s) for s in ordered_strains}
+    groups = [g for g in dict.fromkeys(p[1] for p in parsed.values()) if g]
+    days = _sort_day_labels([d for d in dict.fromkeys(p[0] for p in parsed.values()) if d])
+    color_map = _build_color_map(groups, days) if groups and days else {}
+
+    unlabeled = [s for s in ordered_strains if not (parsed[s][0] and parsed[s][1])]
+    if unlabeled:
+        print(f"Zoomed genome plot: {len(unlabeled)} strain(s) had no parsable "
+              f"day/treatment and are grouped as 'unassigned': {unlabeled}")
+
+    def treatment_label(strain):
+        day, group, _ = parsed[strain]
+        if day and group:
+            return f"{day}-{group}"
+        return "unassigned"
+
+    def treatment_color(strain):
+        day, group, _ = parsed[strain]
+        return color_map.get((group, day), "#c7c7c7")
+
+    # Plot figure
+    fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
+
+    section_colors = ["#e9e9e9", "#d0d0d0"]
+    grid_color = "#b0b0b0"
+    n_str = len(ordered_strains)
+
+    # Vertical bands
+    gene_width = 0.03
+    mag_spacer = 0.05
+    tab_spacer = 0.025
+    row_h = (1.0 - gene_width - mag_spacer - tab_spacer) / (n_str + 1)
+    y_gene_bot = 1.0 - gene_width
+    y_sec_top = y_gene_bot - mag_spacer
+    y_sec_bot = y_sec_top - row_h
+    y_table_top = y_sec_bot - tab_spacer
+    y_table_bot = y_table_top - n_str * row_h
+
+    # Horizontal bar panel on the right
+    hist_spacer, hist_len = 0.02, 0.5
+    bx0 = table_x0 + table_w + hist_spacer
+    bx1 = bx0 + hist_len
+    y_axis = y_table_bot - 0.02
+
+    # Genome bar
+    ax.add_patch(Rectangle((table_x0, y_gene_bot), table_w, gene_width,
+                           facecolor="ivory", edgecolor="black", lw=0.6))
+    for i, s in enumerate(regions):
+        gb_w = max(s["gb_fin"] - s["gb_init"], 0.0005)
+        edge = "black" if gb_w > 0.002 else "none"
+        ax.add_patch(Rectangle((s["gb_init"], y_gene_bot), gb_w, gene_width,
+                               facecolor="black" if gb_w <= 0.002 else section_colors[i % 2],
+                               edgecolor=edge, lw=0.4))
+    ax.text(table_x0, 1.005, "0 Mb", ha="left", va="bottom", fontsize=10)
+    ax.text(table_x0 + table_w, 1.005, f"{n_bases / 1e6:.1f} Mb",
+            ha="right", va="bottom", fontsize=10)
+
+    # Magnification shapes
+    poly_colors = ["#9a9a9a", "#7a7a7a"]
+    for i, s in enumerate(regions):
+        poly = Polygon(
+            [(s["gb_init"], y_gene_bot), (s["gb_fin"], y_gene_bot),
+             (s["new_fin"], y_sec_top), (s["new_init"], y_sec_top)],
+            closed=True, facecolor=poly_colors[i % 2], alpha=0.7,
+            edgecolor="none",
+        )
+        ax.add_patch(poly)
+
+    # Region header bar and optional gene labels
+    label_sections = len(regions) <= 60
+    for i, s in enumerate(regions):
+        w = s["new_fin"] - s["new_init"]
+        ax.add_patch(Rectangle((s["new_init"], y_sec_bot), w, row_h,
+                               facecolor=section_colors[i % 2],
+                               edgecolor="none" if w <= 0.002 else grid_color, lw=0.5))
+        if label_sections and w > 0.01 and s["label"]:
+            ax.text((s["new_init"] + s["new_fin"]) / 2.0, y_sec_top + 0.005,
+                    s["label"], rotation=90, ha="center", va="bottom",
+                    fontsize=6, color="#333333")
+
+    # Mutation table: one row per strain, colored by treatment.
+    records_by_strain = {s: g for s, g in long_df.groupby("strain")}
+    point_frac = 0.65 if capped else 1.0
+    mark_w = col_w * point_frac
+    for r, strain in enumerate(ordered_strains):
+        row_top = y_table_top - r * row_h
+        row_bot = row_top - row_h
+        ax.add_patch(Rectangle((table_x0, row_bot), table_w, row_h,
+                               facecolor=treatment_color(strain), alpha=0.35,
+                               edgecolor="none"))
+        grp = records_by_strain.get(strain)
+        if grp is None:
+            continue
+        for _, rec in grp.iterrows():
+            i0 = site_idx.get(rec["gpos"])
+            if i0 is None:
+                continue
+            color = _STRUCT_COLORS.get(rec["mtype"], _STRUCT_COLORS["other"])
+            if rec["mtype"] == "del" and rec["size"] > 0:
+                i1 = max(site_idx.get(rec["gend"], i0), i0)
+                x0 = col_x(i0)
+                mw = col_x(i1 + 1) - x0
+            else:
+                x0 = col_x(i0) + (col_w - mark_w) / 2.0
+                mw = mark_w
+            ax.add_patch(Rectangle((x0, row_bot), mw, row_h, facecolor=color,
+                                   edgecolor="none", zorder=3))
+
+    px_per_site = figsize[0] * dpi / (1.72 * max(n_sites, 1))
+    if px_per_site >= 4:
+        for i in range(1, n_sites):
+            x = col_x(i)
+            ax.plot([x, x], [y_table_bot, y_sec_top],
+                    color="#dddddd", lw=0.25, zorder=4)
+    elif px_per_site < 2:
+        print(f"Zoomed genome plot: {n_sites} site columns are too narrow to "
+              f"separate; internal grid omitted (raise figsize/dpi or min_strains).")
+    for s in regions:
+        ax.plot([s["new_init"], s["new_init"]], [y_table_bot, y_sec_top],
+                color=grid_color, lw=0.5, zorder=5)
+    ax.plot([table_x0 + table_w, table_x0 + table_w], [y_table_bot, y_sec_top],
+            color=grid_color, lw=0.5, zorder=5)
+    for r in range(n_str + 1):
+        y = y_table_top - r * row_h
+        ax.plot([table_x0, table_x0 + table_w], [y, y],
+                color=grid_color, lw=0.4, zorder=5)
+
+    # Treatment labels
+    block_start = 0
+    for r in range(1, n_str + 1):
+        boundary = (r == n_str) or (treatment_label(ordered_strains[r]) != treatment_label(ordered_strains[block_start]))
+        if boundary:
+            top_y = y_table_top - block_start * row_h
+            bot_y = y_table_top - r * row_h
+            ax.text(table_x0 - 0.01, (top_y + bot_y) / 2.0,
+                    treatment_label(ordered_strains[block_start]),
+                    ha="right", va="center", fontsize=8)
+            block_start = r
+
+    # One bar per strain, number of variants it carries
+    max_count = max(strain_counts[s] for s in ordered_strains) or 1
+    unit = hist_len / max_count
+    for r, strain in enumerate(ordered_strains):
+        row_top = y_table_top - r * row_h
+        ax.add_patch(Rectangle((bx0, row_top - row_h), strain_counts[strain] * unit,
+                               row_h, facecolor=treatment_color(strain), alpha=0.35,
+                               edgecolor="black", lw=0.6))
+
+    step = 10 ** max(0, int(np.ceil(np.log10(max_count / 13.0))))
+    axis_end = bx0 + hist_len + 0.02
+    ax.annotate("", xy=(axis_end, y_axis), xytext=(bx0, y_axis),
+                arrowprops=dict(arrowstyle="->", color="black", lw=0.8))
+    for tick in range(step, max_count + 1, step):
+        tx = bx0 + tick * unit
+        ax.plot([tx, tx], [y_axis, y_axis - 0.02], color="black", lw=0.8)
+        ax.text(tx, y_axis - 0.03, str(tick), ha="center", va="top", fontsize=9)
+    ax.text(bx0 + hist_len * 0.5, y_axis - 0.08,
+            "number of variants", ha="center", va="top", fontsize=11)
+
+    # Legend for mutation types
+    legend_handles = [
+        Patch(facecolor=_STRUCT_COLORS["snp"], edgecolor="black", label="SNP"),
+        Patch(facecolor=_STRUCT_COLORS["ins"], edgecolor="black", label="insertion"),
+        Patch(facecolor=_STRUCT_COLORS["del"], edgecolor="black", label="deletion"),
+        Patch(facecolor=_STRUCT_COLORS["other"], edgecolor="black", label="other"),
+    ]
+    # Legend below the "number of variants" label, centered on the figure
+    ax.legend(handles=legend_handles, loc="upper center", ncol=4,
+              bbox_to_anchor=(0.5, y_axis - 0.12),
+              bbox_transform=ax.get_yaxis_transform(),
+              frameon=False, handlelength=1.4, columnspacing=1.6)
+
+    ax.set_title(f"Zoomed genome plot: {n_str} strains",
+                 fontsize=11, fontweight="bold")
+    ax.set_xlim(-0.15, axis_end + 0.05)
+    ax.set_ylim(y_axis - 0.20, 1.06)
+    ax.axis("off")
 
     if output_file is not None:
         fig.savefig(output_file, dpi=300, bbox_inches="tight")

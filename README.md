@@ -13,7 +13,7 @@ This pipeline supports the following:
 - **Mutation analysis**: Identifies parallel mutations at the site and gene level, and unique mutations per strain
 - **Treatment specificity**: Associates parallel mutations with treatments using Fisher's exact tests (per gene), Dice similarity with a permutation test, and rank tests
 - **Neutral-model simulations**: Estimates expected dN/dS ratios and parallel-mutation counts under a null (neutral) model
-- **Plotting**: Generates bubble plots, mutation spectrum charts, parallel-mutation heatmaps, and allele frequency distributions
+- **Plotting**: Generates bubble plots, mutation spectrum charts, parallel-mutation heatmaps, allele frequency distributions, and zoomed genome plots (adapted from [Kosterlitz](https://github.com/livkosterlitz/Breseq_genome_plots))
 
 ## Requirements
 
@@ -93,7 +93,7 @@ mutanalysis process <ancestor> \
   [--gdtools <path/to/gdtools>] \
   [--output <output_dir>] \
   [--threshold 0.25 0.5 0.75 1.0] \
-  [--plot bubble spectrum parallel allele trajectory]
+  [--plot bubble spectrum parallel allele trajectory genome]
 ```
 
 **Example:**
@@ -123,7 +123,7 @@ mutanalysis process <ancestor> <input_file> \
   [--header-row <int>] \
   [--output <output_dir>] \
   [--threshold 0.25 0.5 0.75 1.0] \
-  [--plot bubble spectrum parallel allele trajectory] \
+  [--plot bubble spectrum parallel allele trajectory genome] \
   [--pseudoclones --reference <reference.gbk>] \
   [--extract-sequences --reference <reference.gbk>]
 ```
@@ -145,15 +145,16 @@ mutanalysis process KZ_19 sample_breseq_output.xlsx \
 | --- | --- | --- | --- | --- |
 | `ancestor` | Both | Yes | — | Ancestor strain column name (e.g., `KZ_19`) |
 | `--output` | Both | No | `output_files/` | Output directory for results |
-| `--reference` | Both | Yes | — | Reference genome. Required in Mode 1; in Mode 2 it enables `--pseudoclones`/`--extract-sequences` |
+| `--reference` | Both | Yes | — | Reference genome. Required in Mode 1; in Mode 2 it enables `--pseudoclones`/`--extract-sequences`/`--plot genome` |
 | `--threshold` | Both | No | — | Space-separated frequency thresholds for filtering |
 | `--samples-dir` | 1 | Yes* | — | Directory containing breseq sample folders |
 | `--gdtools` | 1 | No | `gdtools` | Path to gdtools executable (not needed if using **conda**) |
 | `input_file` | 2 | Yes* | — | Path to pre-processed mutation table |
 | `--header-row` | 2 | No | `0` | Header row index in the input file |
-| `--plot` | Both | No | — | Plot types: `bubble`, `spectrum`, `parallel`, `allele`, `trajectory` |
+| `--plot` | Both | No | — | Plot types: `bubble`, `spectrum`, `parallel`, `allele`, `trajectory`, `genome` (`genome` needs `--reference`) |
+| `--genome-min-strains` | Both | No | `0.25` | Optional in `--plot genome`: minimum strains a region must have mutations in to be shown |
 | `--pseudoclones` | Both | No | off | Generate pseudoclone genomes per sample/frequency bin (needs `--reference`) |
-| `--pseudoclone-bin-width` | Both | No | `0.1` | Frequency-bin width for pseudoclones (default: deciles) |
+| `--pseudoclone-bin-width` | Both | No | `0.1` | Frequency-bin width for pseudoclones |
 | `--pseudoclone-min-freq` | Both | No | `0.05` | Minimum per-sample frequency for a SNP to enter a pseudoclone |
 | `--extract-sequences` | Both | No | off | Write nucleotide/protein FASTA for mutated genes (needs `--reference`) |
 | `--specificity-permutations` | Both | No | `10000` | Permutations for the treatment-specificity Dice test |
@@ -301,6 +302,7 @@ Generated when `--plot` is used:
 | `parallel_mutation_heatmap.png` | Heatmap of genes mutated in parallel across strains |
 | `allele_distribution.png` | Allele frequency distribution by group/timepoint |
 | `time_trajectory.png` | Total mutations over time per group (requires `d<N>-<condition><replicate>` naming) |
+| `zoomed_genome.png` | Zoomed genome plot adapted from [Kosterlitz](https://github.com/livkosterlitz/Breseq_genome_plots) (requires `--reference`). |
 
 #### Parallel-mutation heatmap: strain naming
 
@@ -416,7 +418,7 @@ mutation_analysis/
     ├── dnds_test.py            # Observed dN/dS Fisher's exact test (Mode 1)
     ├── gdtools_runner.py       # Launches gdtools COMPARE and COUNT (Mode 1)
     ├── mutation_classifier.py  # Classifies mutations by type
-    ├── plotting.py             # Bubble plot, spectrum, heatmap, and allele distribution charts
+    ├── plotting.py             # Bubble, spectrum, heatmap, allele distribution, and zoomed genome plots
     ├── pseudoclones.py         # Pseudoclone genomes per sample/frequency bin (--pseudoclones)
     ├── sequence_extraction.py  # Nucleotide/protein FASTA for mutated genes (--extract-sequences)
     ├── specificity.py          # Treatment-specificity analysis (Fisher, Dice, rank tests)
